@@ -10,13 +10,19 @@
     var ct = $("toasts");
     var t = document.createElement("div");
     t.className = "toast" + (type ? " " + type : "");
+    var ic = document.createElement("span");
+    ic.className = "ic sm";
+    ic.textContent = type === "danger" ? "error" : type === "warn" ? "warning" : "check_circle";
     var sp = document.createElement("span");
     sp.textContent = msg;
     var b = document.createElement("button");
     b.className = "t-close";
-    b.textContent = "✕";
+    var bic = document.createElement("span");
+    bic.className = "ic sm";
+    bic.textContent = "close";
+    b.appendChild(bic);
     b.onclick = function () { if (t.parentNode) t.parentNode.removeChild(t); };
-    t.appendChild(sp); t.appendChild(b);
+    t.appendChild(ic); t.appendChild(sp); t.appendChild(b);
     ct.appendChild(t);
     setTimeout(function () { if (t.parentNode) t.parentNode.removeChild(t); }, 4500);
   }
@@ -289,9 +295,11 @@
     var html = "";
     sortedMovs(c).forEach(function (m) {
       var out = F.isOutflow(m.type);
-      var icon = m.type === "payment" || m.type === "settle" ? "💰" : m.type === "interest" ? "⚠️" : m.type === "credit" ? "🎁" : "📦";
-      html += '<div class="mi"><div class="mi-left"><span class="mi-icon">' + icon + '</span><div class="mi-info"><div class="mi-name">' + F.esc(m.description) + '</div><div class="mi-date">' + F.dateDisplay(m.date) + "</div></div></div>" +
-        '<div class="mi-right"><span class="mi-amt ' + (out ? "pos" : "neg") + '">' + (out ? "−" : "+") + F.fmtCurrency(m.amount) + '</span><button class="mi-del" title="Eliminar" onclick="KP_UI.deleteMovement(\'' + c.id + "','" + m.id + "')\">🗑</button></div></div>";
+      var icon = m.type === "payment" || m.type === "settle" ? "payments" : m.type === "interest" ? "percent" : m.type === "credit" ? "savings" : m.type === "manual" ? "edit" : "shopping_bag";
+      var delIc = '<span class="ic sm">delete</span>';
+      html += '<div class="mi"><div class="mi-left"><span class="mi-icon"><span class="ic sm">'
+        + icon + '</span></span><div class="mi-info"><div class="mi-name">' + F.esc(m.description) + '</div><div class="mi-date">' + F.dateDisplay(m.date) + '</div></div></div>' +
+        '<div class="mi-right"><span class="mi-amt ' + (out ? "pos" : "neg") + '">' + (out ? "&#8722;" : "+") + F.fmtCurrency(m.amount) + '</span><button class="mi-del" title="Eliminar" onclick="KP_UI.deleteMovement(' + "'" + c.id + "','" + m.id + "'" + ')">' + delIc + '</button></div></div>';
     });
     $("ptb").innerHTML = html || '<p class="muted">Sin movimientos.</p>';
     // historial
@@ -365,7 +373,7 @@
         var r2 = s().registerPayment(c.id, v, "payment", "Abono");
         $("qpa").value = "";
         render();
-        toast(r2.closed ? "Cuenta saldada 🎉" : "Abono registrado: " + F.fmtCurrency(v));
+        toast(r2.closed ? "Cuenta saldada" : "Abono registrado: " + F.fmtCurrency(v));
       }
     }
     var amb = F.dotAmbiguity(raw);
@@ -382,7 +390,7 @@
       hideOv("pay-ov");
       s().registerPayment(c.id, total, "settle", "Saldo total");
       render();
-      toast("Cuenta saldada 🎉");
+      toast("Cuenta saldada");
     };
     showOv("pay-ov");
   }
@@ -527,12 +535,315 @@
     s().deleteCycle(cid, hid);
     render();
   }
+  // ---------- COMPARTIR FIADO (fiel a _shareClient/_buildTicketWidget) ----------
+  // Modal con vista previa del ticket marca + Opciones avanzadas (historial)
+  // + Copiar texto / Compartir (Web Share API con imagen) / Descargar PNG.
+  var shareState = { cid: null, includeHistory: false };
+
+  // Datos ya calculados para el ticket (los usan el preview HTML y el canvas).
+  function ticketData(c, includeHistory) {
+    var total = s().customerTotal(c), base = s().baseTotal(c);
+    var sorted = (c.movements || []).slice().sort(function (a, b) { return new Date(b.date) - new Date(a.date); });
+    var twoCols = sorted.length > 8;
+    var half = Math.ceil(sorted.length / 2);
+    return {
+      total: total, base: base, intr: total - base,
+      periods: s().interestPeriods(c),
+      dateStr: F.exportDate(new Date()),
+      sorted: sorted, twoCols: twoCols,
+      left: twoCols ? sorted.slice(0, half) : sorted,
+      right: twoCols ? sorted.slice(half) : [],
+      includeHistory: !!includeHistory && (c.history || []).length > 0
+    };
+  }
+  function moveChip(m) {
+    if (m.type === "payment" || m.type === "settle") return { label: "Abono", cls: "abono" };
+    if (m.type === "credit") return { label: "A favor", cls: "favor" };
+    if (m.type === "manual") return { label: "Manual", cls: "manual" };
+    if (m.type === "interest") return { label: "Interes", cls: "interes" };
+    return { label: "Fiado", cls: "fiado" };
+  }
+  function ticketHTML(c, includeHistory) {
+    var d = ticketData(c, includeHistory);
+    var h = '<div class="tk-head"><div class="tk-logo"><span class="ic">storefront</span></div>' +
+      '<div style="flex:1"><div class="tk-brand">MAXIKIOSKO KP</div><div class="tk-sub">Resumen de Cuenta</div></div>' +
+      '<div style="text-align:right"><div class="tk-est">ESTADO DE CUENTA</div><div class="tk-date">' + d.dateStr + "</div></div></div>" +
+      '<div class="tk-accent"></div><div class="tk-body">' +
+      '<div class="tk-client"><div class="tk-avatar"><span class="ic">person</span></div>' +
+      '<div style="flex:1"><div class="tk-lbl">CLIENTE</div><div class="tk-name">' + F.esc(c.name) + "</div></div>" +
+      '<div class="tk-badge ' + (d.total > 0 ? "debe" : "saldado") + '">' + (d.total > 0 ? "Debe" : "Saldado") + "</div></div>" +
+      '<div class="tk-pills">' +
+      '<div class="tk-pill"><div class="tk-lbl">EMITIDO</div><div class="tk-val">' + d.dateStr + "</div></div>" +
+      '<div class="tk-pill"><div class="tk-lbl">CUENTA DESDE</div><div class="tk-val">' + F.formatDateShort(s().accountStart(c)) + "</div></div>";
+    if (c.movements.length) h += '<div class="tk-pill"><div class="tk-lbl">CICLO DESDE</div><div class="tk-val">' + F.formatDateShort(s().cycleStart(c.movements)) + "</div></div>";
+    if (c.limit > 0) h += '<div class="tk-pill"><div class="tk-lbl">CREDITO MAX</div><div class="tk-val">$' + F.fmt(c.limit) + "</div></div>";
+    h += '<div class="tk-pill"><div class="tk-lbl">RECARGO</div><div class="tk-val">' + F.trimNumber(c.interestRate) + "% / " + c.interestDays + "d</div></div></div>" +
+      '<div class="tk-div"></div>' +
+      '<div class="tk-sec"><span class="ic">receipt_long</span> MOVIMIENTOS (' + c.movements.length + ")</div>";
+    function row(m) {
+      var chip = moveChip(m), out = F.isOutflow(m.type);
+      return '<div class="tk-mov"><span class="tk-chip ' + chip.cls + '">' + chip.label + "</span>" +
+        '<span class="tk-desc">' + F.esc(m.description) + "<br><small>" + F.ticketDate(m.date) + "</small></span>" +
+        '<span class="tk-amt' + (out ? " out" : "") + '">' + (out ? "−" : "+") + "$" + F.fmt(m.amount) + "</span></div>";
+    }
+    if (!c.movements.length) {
+      h += '<div class="tk-foot"><i>Sin movimientos</i></div>';
+    } else if (!d.twoCols) {
+      for (var i = 0; i < d.sorted.length; i++) h += row(d.sorted[i]);
+    } else {
+      h += '<div style="display:flex;gap:14px"><div style="flex:1">';
+      for (var a = 0; a < d.left.length; a++) h += row(d.left[a]);
+      h += '</div><div style="flex:1">';
+      for (var b = 0; b < d.right.length; b++) h += row(d.right[b]);
+      h += "</div></div>";
+    }
+    if (d.includeHistory) {
+      h += '<div class="tk-sec"><span class="ic">history</span> HISTORIAL (' + c.history.length + " ciclos)</div>";
+      c.history.forEach(function (cy) {
+        h += '<div class="tk-hist">Ciclo ' + F.formatDateShort(s().cycleStart(cy.movements, cy.closedAt)) + " → " + F.formatDateShort(cy.closedAt) +
+          " · Deuda $" + F.fmt(cy.totalDebt) + " · Pagado $" + F.fmt(cy.totalPaid) + "</div>";
+        cy.movements.slice().sort(function (x, y) { return new Date(y.date) - new Date(x.date); }).forEach(function (m) { h += row(m); });
+      });
+    }
+    h += '<div class="tk-div"></div>' +
+      '<div class="tk-sum"><span>Deuda neta</span><b>$' + F.fmt(d.base) + "</b></div>";
+    if (d.intr > 0) h += '<div class="tk-sum"><span>Recargo por intereses' + (d.periods > 1 ? " (x" + d.periods + ")" : "") + "</span><b>+$" + F.fmt(d.intr) + "</b></div>";
+    h += '<div class="tk-total"><span class="ic">account_balance_wallet</span><span>' + (d.total < 0 ? "SALDO A FAVOR" : "TOTAL A DEBER") + "</span><b>$" + F.fmt(Math.abs(d.total)) + "</b></div>" +
+      '<div class="tk-foot">Gracias por su confianza<br><small>Generado por MaxiKiosko KP</small></div>' +
+      "</div>";
+    return h;
+  }
+
   function shareClient(includeHist) {
     var c = s().getCustomer(D().selectedCustomerId);
     if (!c) return;
-    var t = s().clientTicket(c, !!includeHist);
-    copyText(t, "Resumen copiado al portapapeles");
-    download("Fiado_" + c.name.replace(/\s+/g, "_") + ".txt", t);
+    shareState = { cid: c.id, includeHistory: !!includeHist && (c.history || []).length > 0 };
+    renderShareModal();
+    showOv("share-ov");
+  }
+  function renderShareModal() {
+    var c = s().getCustomer(shareState.cid);
+    if (!c) { hideOv("share-ov"); return; }
+    $("shareTitle").textContent = "Resumen de " + c.name;
+    var box = $("shareHist");
+    if (box) {
+      box.checked = shareState.includeHistory;
+      box.disabled = !(c.history || []).length;
+    }
+    var lbl = $("shareHistLabel");
+    if (lbl) lbl.textContent = "Incluir historial (" + (c.history || []).length + " ciclos)";
+    $("sharePreview").innerHTML = ticketHTML(c, shareState.includeHistory);
+  }
+  function shareRetoggle() {
+    var box = $("shareHist");
+    shareState.includeHistory = !!(box && box.checked);
+    renderShareModal();
+  }
+  function shareCopy() {
+    var c = s().getCustomer(shareState.cid);
+    if (!c) return;
+    copyText(s().clientTicket(c, shareState.includeHistory), "Resumen copiado al portapapeles");
+  }
+  function safeName(name) { return String(name || "cliente").replace(/[^a-zA-Z0-9_]/g, "_"); }
+  function stampName() {
+    var n = new Date();
+    return n.getFullYear() + F.pad2(n.getMonth() + 1) + F.pad2(n.getDate()) + "_" + F.pad2(n.getHours()) + F.pad2(n.getMinutes());
+  }
+  // PNG del ticket (fiel al widget de la app): encabezado marca, pills,
+  // movimientos en 1-2 columnas, historial opcional, caja de total.
+  function drawTicketCanvas(c, includeHistory) {
+    var d = ticketData(c, includeHistory);
+    var K = 2; // escala (~ pixelRatio de la app)
+    var W = (d.twoCols ? 700 : 340) * K;
+    var cv = document.createElement("canvas");
+    var ctx = cv.getContext("2d");
+    var y = 0;
+    function rr(x, yy, w, h, r) {
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(x, yy, w, h, r);
+      else ctx.rect(x, yy, w, h);
+    }
+    function txt(str, x, yy, font, color, align) {
+      ctx.font = font; ctx.fillStyle = color; ctx.textAlign = align || "left"; ctx.textBaseline = "alphabetic";
+      ctx.fillText(str, x, yy);
+    }
+    function ell(str, maxW, font) {
+      ctx.font = font;
+      if (ctx.measureText(str).width <= maxW) return str;
+      while (str.length > 1 && ctx.measureText(str + "…").width > maxW) str = str.slice(0, -1);
+      return str + "…";
+    }
+    // Altura: se calcula antes de crear el bitmap.
+    var headH = 64 * K, pillsH = 56 * K, rowH = 26 * K, secH = 24 * K;
+    var nRows = d.twoCols ? d.left.length : d.sorted.length;
+    var h = headH + 3 * K + 16 * K + 30 * K + 12 * K + pillsH + 14 * K + secH + 6 * K;
+    h += nRows * rowH;
+    if (!c.movements.length) h += 20 * K;
+    if (d.includeHistory) {
+      h += 10 * K + secH + 6 * K;
+      c.history.forEach(function (cy) { h += 16 * K + cy.movements.length * rowH; });
+    }
+    h += 10 * K + 2 * 16 * K + 6 * K + 34 * K + 14 * K + 26 * K + 18 * K;
+    cv.width = W; cv.height = Math.ceil(h);
+    // Fondo
+    ctx.fillStyle = "#FFFFFF"; ctx.fillRect(0, 0, cv.width, cv.height);
+    // Encabezado
+    ctx.fillStyle = "#0F1F14"; ctx.fillRect(0, 0, W, headH);
+    var px = 18 * K; y = 0;
+    ctx.fillStyle = "#4ADE80"; rr(px, 15 * K, 34 * K, 34 * K, 8 * K); ctx.fill();
+    txt("KP", px + 17 * K, 38 * K, "800 " + (15 * K) + "px sans-serif", "#0F1F14", "center");
+    txt("MAXIKIOSKO KP", px + 44 * K, 30 * K, "800 " + (15 * K) + "px sans-serif", "#FFFFFF");
+    txt("Resumen de Cuenta", px + 44 * K, 44 * K, "500 " + (9 * K) + "px sans-serif", "#4ADE80");
+    txt("ESTADO DE CUENTA", W - px, 28 * K, "600 " + (7 * K) + "px sans-serif", "#9AB5A3", "right");
+    txt(d.dateStr, W - px, 42 * K, "500 " + (8 * K) + "px sans-serif", "#E8EFEA", "right");
+    ctx.fillStyle = "#4ADE80"; ctx.fillRect(0, headH, W, 3 * K);
+    y = headH + 3 * K + 16 * K;
+    // Cliente + badge
+    ctx.fillStyle = "#F3F4F6"; ctx.beginPath(); ctx.arc(px + 14 * K, y + 4 * K, 14 * K, 0, 7); ctx.fill();
+    txt("CLIENTE", px + 34 * K, y, "600 " + (8 * K) + "px sans-serif", "#6B7280");
+    txt(ell(c.name, W - px * 2 - 120 * K, "700 " + (14 * K) + "px sans-serif"), px + 34 * K, y + 18 * K, "700 " + (14 * K) + "px sans-serif", "#111111");
+    var badge = d.total > 0 ? "Debe" : "Saldado";
+    ctx.font = "700 " + (8 * K) + "px sans-serif";
+    var bw = ctx.measureText(badge).width + 16 * K;
+    ctx.fillStyle = d.total > 0 ? "#FEE2E2" : "#D1FAE5";
+    rr(W - px - bw, y - 8 * K, bw, 18 * K, 9 * K); ctx.fill();
+    txt(badge, W - px - bw / 2, y + 5 * K, "700 " + (8 * K) + "px sans-serif", d.total > 0 ? "#991B1B" : "#065F46", "center");
+    y += 30 * K + 12 * K;
+    // Pills
+    function pill(label, value, xx) {
+      ctx.font = "600 " + (9 * K) + "px sans-serif";
+      var w = Math.max(ctx.measureText(label).width, ctx.measureText(value).width) + 16 * K;
+      ctx.fillStyle = "#F3F4F6"; rr(xx, y, w, 34 * K, 6 * K); ctx.fill();
+      txt(label, xx + 8 * K, y + 12 * K, "600 " + (7 * K) + "px sans-serif", "#6B7280");
+      txt(value, xx + 8 * K, y + 26 * K, "600 " + (9 * K) + "px sans-serif", "#111111");
+      return w + 8 * K;
+    }
+    var xx = px;
+    xx += pill("EMITIDO", d.dateStr, xx);
+    xx += pill("CUENTA DESDE", F.formatDateShort(s().accountStart(c)), xx);
+    if (c.movements.length) xx += pill("CICLO DESDE", F.formatDateShort(s().cycleStart(c.movements)), xx);
+    if (c.limit > 0) xx += pill("CREDITO MAX", "$" + F.fmt(c.limit), xx);
+    pill("RECARGO", F.trimNumber(c.interestRate) + "% / " + c.interestDays + "d", xx);
+    y += pillsH + 14 * K;
+    ctx.fillStyle = "#E5E7EB"; ctx.fillRect(px, y, W - px * 2, K); y += 10 * K;
+    txt("MOVIMIENTOS (" + c.movements.length + ")", px, y, "700 " + (10 * K) + "px sans-serif", "#111111");
+    y += 6 * K + 12 * K;
+    var chipStyle = {
+      abono: ["Abono", "#D1FAE5", "#065F46"], favor: ["A favor", "#D1FAE5", "#065F46"],
+      manual: ["Manual", "#DBEAFE", "#1E40AF"], interes: ["Interes", "#FEE2E2", "#991B1B"],
+      fiado: ["Fiado", "#FFEDD5", "#9A3412"]
+    };
+    function movRow(m, rx, colW) {
+      var chip = moveChip(m), st = chipStyle[chip.cls], out = F.isOutflow(m.type);
+      ctx.font = "700 " + (8 * K) + "px sans-serif";
+      var cw = ctx.measureText(st[0]).width + 12 * K;
+      ctx.fillStyle = st[1]; rr(rx, y, cw, 14 * K, 4 * K); ctx.fill();
+      txt(st[0], rx + 6 * K, y + 10.5 * K, "700 " + (8 * K) + "px sans-serif", st[2]);
+      var ax = rx + cw + 8 * K;
+      var amt = (out ? "−" : "+") + "$" + F.fmt(m.amount);
+      ctx.font = "700 " + (11 * K) + "px sans-serif";
+      var aw = ctx.measureText(amt).width;
+      txt(ell(m.description, colW - cw - aw - 20 * K, "500 " + (10 * K) + "px sans-serif"), ax, y + 9 * K, "500 " + (10 * K) + "px sans-serif", "#111111");
+      txt(F.ticketDate(m.date), ax, y + 20 * K, "400 " + (8 * K) + "px sans-serif", "#6B7280");
+      txt(amt, rx + colW, y + 12 * K, "700 " + (11 * K) + "px sans-serif", out ? "#065F46" : "#111111", "right");
+      y += rowH;
+    }
+    if (!c.movements.length) {
+      txt("Sin movimientos", px, y + 12 * K, "italic 400 " + (10 * K) + "px sans-serif", "#6B7280");
+      y += 20 * K;
+    } else if (!d.twoCols) {
+      for (var i = 0; i < d.sorted.length; i++) movRow(d.sorted[i], px, W - px * 2);
+    } else {
+      var y0 = y, colW = (W - px * 2 - 14 * K) / 2;
+      for (var a = 0; a < d.left.length; a++) movRow(d.left[a], px, colW);
+      var yL = y; y = y0;
+      for (var b = 0; b < d.right.length; b++) movRow(d.right[b], px + colW + 14 * K, colW);
+      y = Math.max(y, yL);
+    }
+    if (d.includeHistory) {
+      y += 10 * K;
+      txt("HISTORIAL (" + c.history.length + " ciclos)", px, y, "700 " + (10 * K) + "px sans-serif", "#111111");
+      y += 6 * K + 12 * K;
+      c.history.forEach(function (cy) {
+        txt("Ciclo " + F.formatDateShort(s().cycleStart(cy.movements, cy.closedAt)) + " → " + F.formatDateShort(cy.closedAt) +
+          " · Deuda $" + F.fmt(cy.totalDebt) + " · Pagado $" + F.fmt(cy.totalPaid), px, y, "600 " + (9 * K) + "px sans-serif", "#6B7280");
+        y += 16 * K;
+        cy.movements.slice().sort(function (m1, m2) { return new Date(m2.date) - new Date(m1.date); })
+          .forEach(function (m) { movRow(m, px, W - px * 2); });
+      });
+    }
+    y += 10 * K;
+    ctx.fillStyle = "#E5E7EB"; ctx.fillRect(px, y, W - px * 2, K); y += 10 * K + 12 * K;
+    txt("Deuda neta", px, y, "500 " + (10 * K) + "px sans-serif", "#6B7280");
+    txt("$" + F.fmt(d.base), W - px, y, "500 " + (10 * K) + "px sans-serif", "#111111", "right");
+    y += 16 * K;
+    if (d.intr > 0) {
+      txt("Recargo por intereses" + (d.periods > 1 ? " (x" + d.periods + ")" : ""), px, y, "500 " + (10 * K) + "px sans-serif", "#6B7280");
+      txt("+$" + F.fmt(d.intr), W - px, y, "500 " + (10 * K) + "px sans-serif", "#111111", "right");
+      y += 16 * K;
+    }
+    y += 6 * K;
+    ctx.fillStyle = "#0F1F14"; rr(px, y, W - px * 2, 34 * K, 8 * K); ctx.fill();
+    txt(d.total < 0 ? "SALDO A FAVOR" : "TOTAL A DEBER", px + 14 * K, y + 21 * K, "700 " + (9 * K) + "px sans-serif", "#9AB5A3");
+    txt("$" + F.fmt(Math.abs(d.total)), W - px - 14 * K, y + 23 * K, "800 " + (16 * K) + "px sans-serif", "#4ADE80", "right");
+    y += 34 * K + 14 * K;
+    txt("Gracias por su confianza", W / 2, y + 10 * K, "500 " + (9 * K) + "px sans-serif", "#6B7280", "center");
+    txt("Generado por MaxiKiosko KP", W / 2, y + 22 * K, "500 " + (7 * K) + "px sans-serif", "#9CA3AF", "center");
+    return cv;
+  }
+  function shareFileName(c) {
+    return "Fiado_" + safeName(c.name) + "_" + stampName() + ".png";
+  }
+  function shareCopy() {
+    var c = s().getCustomer(shareState.cid);
+    if (!c) return;
+    copyText(s().clientTicket(c, shareState.includeHistory), "Resumen copiado al portapapeles");
+  }
+  function shareSend() {
+    var c = s().getCustomer(shareState.cid);
+    if (!c) return;
+    var done = function () { hideOv("share-ov"); toast("Resumen de " + c.name + " compartido"); };
+    try {
+      if (navigator.share) {
+        var cv = drawTicketCanvas(c, shareState.includeHistory);
+        if (cv.toBlob) {
+          cv.toBlob(function (blob) {
+            try {
+              if (blob && navigator.canShare) {
+                var file = new File([blob], "fiado_" + safeName(c.name) + ".png", { type: "image/png" });
+                try {
+                  if (navigator.canShare({ files: [file] })) {
+                    navigator.share({ files: [file], title: "Resumen de cuenta - " + c.name, text: "Resumen de cuenta de " + c.name }).then(done, function () { toast("Compartir cancelado", "warn"); });
+                    return;
+                  }
+                } catch (e) {}
+              }
+              navigator.share({ title: "Resumen de cuenta - " + c.name, text: s().clientTicket(c, shareState.includeHistory) }).then(done, function () {});
+            } catch (e) { shareCopy(); }
+          }, "image/png");
+          return;
+        }
+        navigator.share({ title: "Resumen de cuenta - " + c.name, text: s().clientTicket(c, shareState.includeHistory) }).then(done, function () {});
+        return;
+      }
+    } catch (e) {}
+    shareCopy();
+  }
+  function shareDownload() {
+    var c = s().getCustomer(shareState.cid);
+    if (!c) return;
+    try {
+      var url = drawTicketCanvas(c, shareState.includeHistory).toDataURL("image/png");
+      var a = document.createElement("a");
+      a.href = url;
+      a.download = shareFileName(c);
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function () { a.remove(); }, 500);
+      toast("Imagen guardada en Descargas");
+    } catch (e) {
+      toast("No se pudo generar la imagen", "danger");
+    }
   }
 
   // ---------- INVENTARIO ----------
@@ -731,9 +1042,9 @@
     D().cart.forEach(function (it, i) {
       var sub = F.money(it.price * it.quantity);
       var qtyCtl = it.unit === "kg"
-        ? '<span>' + F.fmtQtyShort(it.quantity) + ' kg</span><button onclick="KP_UI.editCartWeight(' + i + ')">✏️</button>'
-        : '<button onclick="KP_UI.cartQty(' + i + ",-1)\">−</button><span>" + Math.round(it.quantity) + "</span><button onclick=\"KP_UI.cartQty(" + i + ",1)\">+</button>";
-      ch += '<div class="ci-cart"><span class="cc-name">' + F.esc(it.name) + '</span><span class="cc-qty">' + qtyCtl + '</span><span class="cc-sub">' + F.fmtCurrency(sub) + '</span><button class="cc-del" onclick="KP_UI.cartDel(' + i + ')">✕</button></div>';
+        ? '<span>' + F.fmtQtyShort(it.quantity) + ' kg</span><button onclick="KP_UI.editCartWeight(' + i + ')"><span class="ic sm">edit</span></button>'
+        : '<button onclick="KP_UI.cartQty(' + i + ",-1)\"><span class=\"ic sm\">remove</span></button><span>" + Math.round(it.quantity) + "</span><button onclick=\"KP_UI.cartQty(" + i + ",1)\"><span class=\"ic sm\">add</span></button>";
+      ch += '<div class="ci-cart"><span class="cc-name">' + F.esc(it.name) + '</span><span class="cc-qty">' + qtyCtl + '</span><span class="cc-sub">' + F.fmtCurrency(sub) + '</span><button class="cc-del" onclick="KP_UI.cartDel(' + i + ')"><span class="ic sm">close</span></button></div>';
     });
     $("cart-items").innerHTML = ch;
     $("cart-empty").style.display = D().cart.length ? "none" : "";
@@ -794,7 +1105,7 @@
       g.items.sort(function (a, b) { return new Date(b.date) - new Date(a.date); });
       html += '<div class="mhead">' + F.monthLabel(g.d) + " · " + F.fmtCurrency(g.sub) + "</div>";
       g.items.forEach(function (e) {
-        html += '<div class="ex"><span>' + F.esc(e.description) + " <small>" + F.dateDisplay(e.date) + '</small></span><span><b class="neg">' + F.fmtCurrency(e.amount) + '</b> <button class="mi-del" onclick="KP_UI.deleteExpense(\'' + e.id + "')\">🗑</button></span></div>";
+        html += '<div class="ex"><span>' + F.esc(e.description) + " <small>" + F.dateDisplay(e.date) + '</small></span><span><b class="neg">' + F.fmtCurrency(e.amount) + '</b> <button class="mi-del" onclick="KP_UI.deleteExpense(\'' + e.id + "')\">" + '<span class="ic sm">delete</span></button></span></div>';
       });
     });
     $("gastos-list").innerHTML = html || '<p class="muted">Sin gastos.</p>';
@@ -833,8 +1144,8 @@
         var items = sl.items.map(function (it) { return F.itemQtyPrefix(it.quantity, it.unit) + " " + it.name; }).join(", ");
         html += '<div class="sale"><div class="sale-top"><b>' + F.fmtCurrency(sl.total) + '</b><span class="muted">' + F.esc(sl.clientName || "Público") + " · " + F.esc(sl.method) + " · " + F.dateDisplay(sl.date) + "</span></div>" +
           '<div class="sale-items">' + F.esc(items) + "</div>" +
-          '<div class="sale-acts"><button class="btn sm" onclick="KP_UI.shareSale(\'' + sl.id + "')\">🧾 Ticket</button>" +
-          '<button class="btn sm danger" onclick="KP_UI.deleteSale(\'' + sl.id + "')\">Anular</button></div></div>";
+          '<div class="sale-acts"><button class="btn sm" onclick="KP_UI.shareSale(' + "'" + sl.id + "'" + ')">' + '<span class="ic sm">receipt_long</span> Ticket</button>' +
+          '<button class="btn sm danger" onclick="KP_UI.deleteSale(' + "'" + sl.id + "'" + ')">' + '<span class="ic sm">delete</span> Anular</button></div></div>';
       });
     });
     if (list.length > shown.length) html += '<button class="btn" style="width:100%" onclick="KP_UI.histMore()">Cargar más (' + (list.length - shown.length) + " restantes)</button>";
@@ -957,6 +1268,7 @@
     acFiadoInput: acFiadoInput, acCobrarInput: acCobrarInput, acPick: acPick, acHide: acHide, acKey: acKey,
     addProductFiado: addProductFiado, addManualAmount: addManualAmount, deleteMovement: deleteMovement,
     archiveCycle: archiveCycle, deleteCycle: deleteCycle, shareClient: shareClient,
+    shareRetoggle: shareRetoggle, shareCopy: shareCopy, shareSend: shareSend, shareDownload: shareDownload,
     setInvFilter: setInvFilter, selectProduct: selectProduct, showNewProductForm: showNewProductForm,
     createProduct: createProduct, updateProduct: updateProduct, deleteProduct: deleteProduct,
     setPM: setPM, addToCart: addToCart, weightPreview: weightPreview, weightConfirm: weightConfirm,

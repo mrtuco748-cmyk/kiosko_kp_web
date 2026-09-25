@@ -206,6 +206,11 @@
       withCycles = !!cy;
       return db().fetchAll();
     }).then(function (res) {
+      // Snapshot de pendientes ANTES de reemplazar las listas: lo creado o
+      // editado durante el vuelo (ej: alta rápida mientras el sync inicial
+      // viaja) se conserva. Sin esto el pull pisaría esos cambios en
+      // silencio. Los pendientes ganan (paridad con Flutter).
+      var keep = snapPending();
       var rawC = res[0], rawM = res[1], rawP = res[2], rawS = res[3], rawSI = res[4], rawE = res[5];
       var movBy = {};
       for (var i = 0; i < rawM.length; i++) {
@@ -254,7 +259,7 @@
           date: e.date || new Date().toISOString(), updatedAt: e.updated_at || null
         };
       });
-      if (!withCycles) { filterTombstones(); return { withUnit: withUnit, withCycles: false }; }
+      if (!withCycles) { filterTombstones(); reattach(keep); filterTombstones(); return { withUnit: withUnit, withCycles: false }; }
       return db().fetchTable("debt_cycles").then(function (rc) {
         return db().fetchTable("archived_movements").then(function (ra) {
           var byCycle = {};
@@ -280,9 +285,11 @@
             S.customers[k].history = list;
           }
           filterTombstones();
+          reattach(keep);
+          filterTombstones();
           return { withUnit: withUnit, withCycles: true };
         });
-      }).catch(function () { filterTombstones(); return { withUnit: withUnit, withCycles: false }; });
+      }).catch(function () { filterTombstones(); reattach(keep); filterTombstones(); return { withUnit: withUnit, withCycles: false }; });
     });
   }
 
@@ -401,6 +408,54 @@
             });
         });
     });
+  }
+
+  function snapPending() {
+    function byId(list, ids) {
+      var out = [];
+      for (var i = 0; i < ids.length; i++) {
+        for (var j = 0; j < list.length; j++) {
+          if (list[j].id === ids[i]) { out.push(list[j]); break; }
+        }
+      }
+      return out;
+    }
+    return {
+      customers: byId(S.customers, S.pending.customers),
+      products: byId(S.inventory, S.pending.products),
+      sales: byId(S.sales, S.pending.sales),
+      expenses: byId(S.expenses, S.pending.expenses)
+    };
+  }
+  // Los movimientos/ciclos pendientes viajan dentro de sus customers.
+  // Si el id ya vino en el pull, el pendiente local GANA (se reemplaza;
+  // el historial se une por id como en Flutter).
+  function reattach(snap) {
+    var i, j, k, found;
+    for (i = 0; i < snap.customers.length; i++) {
+      var sc = snap.customers[i], cur = getCustomer(sc.id);
+      if (!cur) { S.customers.push(sc); continue; }
+      var seen = {}, merged = [];
+      ((cur.history || []).concat(sc.history || [])).forEach(function (h) { if (!seen[h.id]) { seen[h.id] = 1; merged.push(h); } });
+      merged.sort(function (a, b) { return new Date(b.closedAt) - new Date(a.closedAt); });
+      sc.history = merged;
+      for (k = 0; k < S.customers.length; k++) if (S.customers[k].id === sc.id) S.customers[k] = sc;
+    }
+    for (i = 0; i < snap.products.length; i++) {
+      found = -1;
+      for (j = 0; j < S.inventory.length; j++) if (S.inventory[j].id === snap.products[i].id) found = j;
+      if (found < 0) S.inventory.push(snap.products[i]); else S.inventory[found] = snap.products[i];
+    }
+    for (i = 0; i < snap.sales.length; i++) {
+      found = -1;
+      for (j = 0; j < S.sales.length; j++) if (S.sales[j].id === snap.sales[i].id) found = j;
+      if (found < 0) S.sales.push(snap.sales[i]); else S.sales[found] = snap.sales[i];
+    }
+    for (i = 0; i < snap.expenses.length; i++) {
+      found = -1;
+      for (j = 0; j < S.expenses.length; j++) if (S.expenses[j].id === snap.expenses[i].id) found = j;
+      if (found < 0) S.expenses.push(snap.expenses[i]); else S.expenses[found] = snap.expenses[i];
+    }
   }
 
   function fullSync() {

@@ -146,6 +146,62 @@ main{flex:1;padding:16px;overflow-y:auto;max-height:calc(100vh - 57px);min-width
 .md-form{display:none;flex-direction:column;gap:8px;padding:10px;border-radius:var(--rs);box-shadow:inset 0 2px 6px rgba(0,0,0,.4);background:var(--sf)}
 .md-form.open{display:flex}
 
+/* ICONOS (Material Icons Round: los mismos de la app Flutter) */
+.ic{font-family:'Material Icons Round';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;display:inline-block;white-space:nowrap;direction:ltr;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;font-size:20px;vertical-align:middle;user-select:none;flex-shrink:0}
+.ic.sm{font-size:16px}
+.ic.xl{font-size:44px}
+button .ic{margin:0}
+.muted.ic{color:var(--txl)}
+
+/* COMPARTIR FIADO: ticket marca (fiel a _buildTicketWidget de la app) */
+.ticket-scroll{overflow:auto;max-height:46vh;border-radius:var(--rs)}
+.ticket{background:#fff;color:#1F2937;border-radius:6px;overflow:hidden;font-size:11px;min-width:300px}
+.tk-head{background:#0F1F14;color:#fff;padding:14px 16px;display:flex;gap:10px;align-items:center}
+.tk-logo{width:34px;height:34px;border-radius:8px;background:#4ADE80;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.tk-logo .ic{color:#0F1F14;font-size:20px}
+.tk-brand{font-size:15px;font-weight:800;letter-spacing:1px}
+.tk-sub{color:#4ADE80;font-size:9px;font-weight:500}
+.tk-est{color:#9AB5A3;font-size:7px;font-weight:600;letter-spacing:1px}
+.tk-date{color:#E8EFEA;font-size:8px}
+.tk-accent{height:3px;background:#4ADE80}
+.tk-body{padding:14px 16px 16px;display:flex;flex-direction:column;gap:10px}
+.tk-client{display:flex;align-items:center;gap:10px}
+.tk-avatar{width:28px;height:28px;border-radius:50%;background:#F3F4F6;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.tk-avatar .ic{color:#4ADE80;font-size:16px}
+.tk-lbl{color:#6B7280;font-size:8px;font-weight:600;letter-spacing:1px}
+.tk-name{color:#111;font-size:14px;font-weight:700}
+.tk-badge{font-size:8px;font-weight:700;padding:4px 8px;border-radius:12px;white-space:nowrap}
+.tk-badge.debe{background:#FEE2E2;color:#991B1B}
+.tk-badge.saldado{background:#D1FAE5;color:#065F46}
+.tk-pills{display:flex;gap:8px;flex-wrap:wrap}
+.tk-pill{background:#F3F4F6;border-radius:6px;padding:6px 8px}
+.tk-pill .tk-val{color:#111;font-size:9px;font-weight:600}
+.tk-sec{color:#111;font-size:10px;font-weight:700;letter-spacing:.6px;display:flex;align-items:center;gap:6px}
+.tk-sec .ic{color:#4ADE80;font-size:13px}
+.tk-mov{display:flex;align-items:center;gap:8px;padding:5px 0}
+.tk-chip{font-size:8px;font-weight:700;padding:3px 6px;border-radius:4px;white-space:nowrap}
+.tk-chip.abono,.tk-chip.favor{background:#D1FAE5;color:#065F46}
+.tk-chip.manual{background:#DBEAFE;color:#1E40AF}
+.tk-chip.interes{background:#FEE2E2;color:#991B1B}
+.tk-chip.fiado{background:#FFEDD5;color:#9A3412}
+.tk-desc{flex:1;min-width:0;color:#111;font-size:10px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tk-desc small{color:#6B7280;font-size:8px;font-weight:400}
+.tk-amt{font-size:11px;font-weight:700;color:#111;white-space:nowrap}
+.tk-amt.out{color:#065F46}
+.tk-hist{color:#6B7280;font-size:9px;font-weight:600;padding-top:3px}
+.tk-sum{display:flex;justify-content:space-between;font-size:10px;color:#6B7280;font-weight:500}
+.tk-sum b{color:#111;font-weight:500}
+.tk-total{background:#0F1F14;border-radius:8px;padding:12px 14px;display:flex;align-items:center;gap:8px}
+.tk-total .ic{color:#4ADE80;font-size:16px}
+.tk-total span{color:#9AB5A3;font-size:9px;font-weight:700;letter-spacing:1px;flex:1}
+.tk-total b{color:#4ADE80;font-size:16px;font-weight:800}
+.tk-foot{text-align:center;color:#6B7280;font-size:9px}
+.tk-foot small{color:#9CA3AF;font-size:7px}
+.tk-div{height:1px;background:#E5E7EB}
+.adv-toggle{background:none;box-shadow:none;color:var(--txl);font-size:11px;padding:4px 0;justify-content:flex-start}
+.adv-toggle .ic{transition:transform .2s}
+.adv-toggle.open .ic{transform:rotate(180deg)}
+
 /* AUTOCOMPLETADO (sugerencias por coincidencia nombre/marca) */
 .ac-wrap{position:relative;flex:1;min-width:0}
 .srch .ac-wrap input{background:transparent;box-shadow:none;padding:6px 0}
