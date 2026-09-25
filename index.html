@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0f1f14">
+<meta name="description" content="MaxiKiosko KP — gestión de fiados, inventario, ventas y gastos. Conectada a Supabase.">
+<title>MaxiKiosko KP</title>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<header>
+  <div class="h-left">
+    <button class="h-menu" onclick="KP_UI.toggleSidebar()">☰</button>
+    <span class="h-logo">KP</span>
+    <span class="h-name">MaxiKiosko KP</span>
+    <span id="netDot" class="netdot off" title="Sin conexión"></span>
+    <span id="syncState" class="muted">Local</span>
+  </div>
+  <div class="h-right">
+    <button class="btn blue" onclick="KP_UI.openImportTicket()">🧾 Importar</button>
+    <button class="btn primary" onclick="KP_UI.openLoadData()">📁 Cargar</button>
+    <button class="btn" onclick="KP_UI.fullSyncBtn()" title="Sincronizar ahora">🔄</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <aside id="sidebar">
+    <button class="sb-btn active" data-view="inicio" onclick="KP_UI.switchView('inicio')">🏠 Inicio</button>
+    <button class="sb-btn" data-view="fiados" onclick="KP_UI.switchView('fiados')">👥 Fiados<span class="badge" id="fiadosBadge" style="display:none">0</span></button>
+    <button class="sb-btn" data-view="inventario" onclick="KP_UI.switchView('inventario')">📦 Inventario</button>
+    <button class="sb-btn" data-view="cobrar" onclick="KP_UI.switchView('cobrar')">💰 Cobrar</button>
+    <button class="sb-btn" data-view="gastos" onclick="KP_UI.switchView('gastos')">💸 Gastos</button>
+    <button class="sb-btn" data-view="historial" onclick="KP_UI.switchView('historial')">🧾 Ventas</button>
+  </aside>
+
+  <main>
+    <!-- INICIO -->
+    <section id="view-inicio" class="view active">
+      <div class="card hero">
+        <h1>MaxiKiosko KP</h1>
+        <p>Control de Créditos, Inventario y Ventas</p>
+      </div>
+      <div class="grid-stats">
+        <button class="stat" onclick="KP_UI.homeTogglePanel('fiados')"><h3>Total fiado</h3><p id="stFiado" style="color:var(--dg)">$0,00</p></button>
+        <button class="stat" onclick="KP_UI.homeTogglePanel('clientes')"><h3>Clientes totales</h3><p id="stClientes">0</p></button>
+        <button class="stat" onclick="KP_UI.homeTogglePanel('deudor')"><h3>Mayor deudor</h3><p id="stDeudor" style="font-size:13px">Ninguno</p></button>
+        <button class="stat" onclick="KP_UI.homeTogglePanel('inventario')"><h3>Productos</h3><p id="stProd" style="color:var(--sc)">0</p></button>
+        <button class="stat" onclick="KP_UI.homeTogglePanel('inventario')"><h3>Plata en productos</h3><p id="stInvVal" style="color:var(--wr)">$0,00</p></button>
+        <button class="stat" onclick="KP_UI.homeTogglePanel('ventas')"><h3>Ventas del mes</h3><p id="stMes" style="color:var(--ok)">$0,00</p></button>
+        <button class="stat" onclick="KP_UI.homeTogglePanel('ventashoy')"><h3>Ganado hoy</h3><p id="stHoy" style="color:var(--pr)">$0,00</p></button>
+        <button class="stat" onclick="KP_UI.homeTogglePanel('gastos')"><h3>Gastado el mes</h3><p id="stGastoMes" style="color:var(--dg)">$0,00</p></button>
+        <button class="stat"><h3>Ganancia del mes</h3><p id="stGanMes" style="color:var(--pr)">$0,00</p></button>
+        <button class="stat"><h3>Ganancia total</h3><p id="stGanTot" style="color:var(--ok)">$0,00</p></button>
+      </div>
+      <div id="homePanel" class="card" style="display:none"></div>
+      <div class="card">
+        <h2>Plata en stock por producto</h2>
+        <div id="homeStockTop"></div>
+      </div>
+      <div class="card">
+        <h2>Registrar gasto</h2>
+        <div class="expense-form">
+          <div><label>Concepto</label><input type="text" id="edHome" placeholder="Ej: Luz, Alquiler..."></div>
+          <div><label>Monto ($)</label><input type="text" id="eaHome" inputmode="decimal" placeholder="0,00"></div>
+          <div style="align-self:end;flex:0"><button class="btn danger" onclick="KP_UI.addExpenseFrom('h')">Pagar</button></div>
+        </div>
+        <div id="homeExpList"></div>
+      </div>
+      <div class="card">
+        <h2>Mantenimiento</h2>
+        <p class="muted">Descarga la base de datos para no perder registros. El formato es el mismo de la app: se puede cargar de un lado y del otro.</p>
+        <div><button class="btn blue" onclick="KP_UI.exportData()">⬇ Guardar Datos</button></div>
+      </div>
+    </section>
+
+    <!-- FIADOS -->
+    <section id="view-fiados" class="view">
+      <div class="split">
+        <div class="split-left">
+          <div class="srch">🔎<input type="text" id="cs" placeholder="Buscar cliente..." oninput="KP_STORE.emit()"></div>
+          <button class="btn solid" onclick="KP_UI.showNewClientForm()" style="justify-content:center">+ Nuevo Cliente</button>
+          <div class="clist" id="cc"></div>
+        </div>
+        <div class="split-right" id="dp">
+          <div class="card" id="detailEmpty" style="align-items:center;text-align:center;padding:40px 20px">
+            <div style="font-size:32px;opacity:.4">👥</div>
+            <p class="muted">Selecciona un cliente para operar.</p>
+          </div>
+          <div id="dc" style="display:none;flex-direction:column;gap:12px">
+            <div class="card">
+              <div class="cdh">
+                <div class="av-lg green" id="cdhAv">?</div>
+                <div class="cdh-info">
+                  <input type="text" id="acn" onchange="KP_UI.renameCustomer()">
+                  <div class="muted" id="acl"></div>
+                </div>
+                <div class="cdh-actions">
+                  <button class="btn sm" onclick="KP_UI.deselectCustomer()">◀</button>
+                  <button class="btn sm blue" onclick="KP_UI.shareClient(false)">🧾</button>
+                  <button class="btn sm danger" onclick="KP_UI.deleteCustomer()">🗑</button>
+                </div>
+              </div>
+            </div>
+            <div class="cc">
+              <button class="cc-h open" onclick="this.classList.toggle('open');this.nextElementSibling.classList.toggle('open')">⚠ Recargo por Mora <span class="arr">▼</span></button>
+              <div class="cc-b open">
+                <div style="display:flex;gap:8px;flex-wrap:wrap">
+                  <div class="fld" style="flex:1;min-width:90px"><label>Días vencimiento</label><input type="number" id="intDays" min="0" value="30" onchange="KP_UI.updateInterestSettings()"></div>
+                  <div class="fld" style="flex:1;min-width:90px"><label>Recargo %</label><input type="text" id="intRate" inputmode="decimal" value="10" onchange="KP_UI.updateInterestSettings()"></div>
+                </div>
+                <div class="muted" id="intInfo"></div>
+              </div>
+            </div>
+            <div class="qar">
+              <div class="paybox">
+                <input type="text" id="qpa" inputmode="decimal" placeholder="Monto $">
+                <button class="btn ok" onclick="KP_UI.addPayment()">Abonar</button>
+              </div>
+              <button class="btn warn" onclick="KP_UI.settleAccount()">Saldar Todo</button>
+            </div>
+            <div class="cc">
+              <button class="cc-h" onclick="this.classList.toggle('open');this.nextElementSibling.classList.toggle('open')">➕ Fiar Artículo <span class="arr">▼</span></button>
+              <div class="cc-b">
+                <form onsubmit="KP_UI.addProductFiado(event)">
+                  <div class="fiar-grid">
+                    <div><input type="text" id="pn2" placeholder="Artículo" list="inv-options" oninput="KP_UI.autoFillPrice()" autocomplete="off"><datalist id="inv-options"></datalist></div>
+                    <div><input type="text" id="pp" inputmode="decimal" placeholder="Precio"></div>
+                    <div><input type="text" id="pq" inputmode="decimal" value="1" placeholder="Cant"><small id="pqHint">u.</small></div>
+                    <div><button type="submit" class="btn primary">Fiar</button></div>
+                  </div>
+                </form>
+              </div>
+            </div>
+            <div class="cc">
+              <button class="cc-h" onclick="this.classList.toggle('open');this.nextElementSibling.classList.toggle('open')">✎ Agregar Deuda Manual <span class="arr">▼</span></button>
+              <div class="cc-b">
+                <form onsubmit="KP_UI.addManualAmount(event)">
+                  <div class="maf">
+                    <div><input type="text" id="pmr" placeholder="Razón (servicio, reparación...)"></div>
+                    <div><input type="text" id="pma" inputmode="decimal" placeholder="Monto"></div>
+                    <div><button type="submit" class="btn warn">Agregar</button></div>
+                  </div>
+                </form>
+              </div>
+            </div>
+            <div class="ml" id="ptb"></div>
+            <div class="tb"><span class="tb-label" id="ctdLabel">Deuda total:</span><span class="tb-num neg" id="ctd">$0,00</span></div>
+            <div class="cc">
+              <button class="cc-h" onclick="this.classList.toggle('open');this.nextElementSibling.classList.toggle('open')">📚 Historial de ciclos <span class="arr">▼</span></button>
+              <div class="cc-b">
+                <div id="histList"></div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap">
+                  <button class="btn sm warn" onclick="KP_UI.archiveCycle()">Archivar ciclo actual</button>
+                  <button class="btn sm blue" onclick="KP_UI.shareClient(true)">🧾 Compartir con historial</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- INVENTARIO -->
+    <section id="view-inventario" class="view">
+      <div class="split">
+        <div class="split-left">
+          <div class="srch">🔎<input type="text" id="inv-search" placeholder="Buscar producto o marca..." oninput="KP_STORE.emit()"></div>
+          <button class="btn solid" onclick="KP_UI.showNewProductForm()" style="justify-content:center">+ Nuevo Producto</button>
+          <div class="filts">
+            <button class="active" onclick="KP_UI.setInvFilter('all',this)">Todo</button>
+            <button onclick="KP_UI.setInvFilter('nostock',this)">Sin Stock</button>
+            <button onclick="KP_UI.setInvFilter('low',this)">Stock Bajo</button>
+          </div>
+          <div class="clist" id="inv-list"></div>
+        </div>
+        <div class="split-right">
+          <div class="card" id="inv-empty" style="align-items:center;text-align:center;padding:40px 20px">
+            <div style="font-size:32px;opacity:.4">📦</div>
+            <p class="muted">Selecciona un producto para ver detalles.</p>
+          </div>
+          <div class="card" id="inv-edit" style="display:none">
+            <div class="dh"><h2 id="inv-en">-</h2><button class="btn sm danger" onclick="KP_UI.deleteProduct()">Eliminar</button></div>
+            <form onsubmit="KP_UI.updateProduct(event)">
+              <div class="pef">
+                <div class="fld"><label>Nombre</label><input type="text" id="inv-en2"></div>
+                <div class="fld"><label>Marca</label><input type="text" id="inv-em"></div>
+                <div class="fld"><label>Categoría</label><input type="text" id="inv-ec"></div>
+                <div class="fld"><label>Unidad</label><select id="inv-unit"><option value="u">Por unidad</option><option value="kg">Por kg</option></select></div>
+                <div class="pef-grid">
+                  <div class="fld"><label>Precio venta</label><input type="text" id="inv-ep" inputmode="decimal"></div>
+                  <div class="fld"><label>Precio compra</label><input type="text" id="inv-ebp" inputmode="decimal"></div>
+                </div>
+                <div class="fld"><label>Stock</label><input type="text" id="inv-es" inputmode="decimal"></div>
+                <div class="muted" id="inv-val"></div>
+                <button type="submit" class="btn primary" style="justify-content:center">Guardar Cambios</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- COBRAR -->
+    <section id="view-cobrar" class="view">
+      <div class="split">
+        <div class="split-left">
+          <div class="card">
+            <h2>🛒 Carrito</h2>
+            <div class="fld"><label>Comprador</label><input type="text" id="sale-client-name" placeholder="Nombre..." list="sale-client-options" autocomplete="off"><datalist id="sale-client-options"></datalist></div>
+            <div id="cart-empty" class="muted" style="text-align:center;padding:14px">Agrega productos desde el catálogo →</div>
+            <div id="cart-items" class="cart-items"></div>
+            <div class="fld"><label>Método de pago</label>
+              <div class="pmtgl" id="pm-group">
+                <button class="active" onclick="KP_UI.setPM('efectivo',this)">💵 Efectivo</button>
+                <button onclick="KP_UI.setPM('transferencia',this)">🏦 Transf.</button>
+                <button onclick="KP_UI.setPM('tarjeta',this)">💳 Tarjeta</button>
+              </div>
+            </div>
+            <div class="dh">
+              <div><small>Total:</small><h2 id="cart-total" style="color:var(--pr)">$0,00</h2></div>
+              <div style="text-align:right"><small>Obtenido:</small><h3 id="cart-obtained" style="color:var(--ok)">$0,00</h3></div>
+            </div>
+            <button class="btn ok" onclick="KP_UI.confirmSale()" style="justify-content:center;padding:12px">Cobrar</button>
+            <label class="checkline"><input type="checkbox" id="chk-ticket" style="width:auto"> Descargar ticket</label>
+          </div>
+          <div class="card">
+            <div class="dh"><span style="font-weight:600;color:var(--wr)">⚠ Mini Deuda</span><button class="btn sm warn" onclick="KP_UI.toggleMiniDeuda()">Abrir</button></div>
+            <div class="md-form" id="mini-deuda-form">
+              <p class="muted">Cobro rápido sin carrito (no toca stock).</p>
+              <input type="text" id="md-desc" placeholder="Razón (Ej: Empanadas)">
+              <div style="display:flex;gap:6px">
+                <input type="text" id="md-amt" inputmode="decimal" placeholder="Monto $">
+                <input type="text" id="md-client" placeholder="Cliente (opcional)" list="md-client-options" autocomplete="off"><datalist id="md-client-options"></datalist>
+              </div>
+              <button class="btn ok" onclick="KP_UI.cobrarMiniDeuda()">Cobrar Mini Deuda</button>
+            </div>
+          </div>
+        </div>
+        <div class="split-right">
+          <div class="card">
+            <h2>Catálogo</h2>
+            <div class="srch">🔎<input type="text" id="sale-search" placeholder="Buscar..." oninput="KP_STORE.emit()"></div>
+            <div id="sale-catalog" class="scat"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- GASTOS -->
+    <section id="view-gastos" class="view">
+      <div class="cc">
+        <button class="cc-h open" onclick="this.classList.toggle('open');this.nextElementSibling.classList.toggle('open')">💸 Registrar Gasto <span class="arr">▼</span></button>
+        <div class="cc-b open">
+          <div class="expense-form">
+            <div><input type="text" id="edGasto" placeholder="Concepto (Luz, Alquiler...)"></div>
+            <div><input type="text" id="eaGasto" inputmode="decimal" placeholder="Monto $"></div>
+            <div style="flex:0"><button class="btn danger" onclick="KP_UI.addExpenseFrom('g')">Pagar</button></div>
+          </div>
+        </div>
+      </div>
+      <div id="gastos-list"></div>
+    </section>
+
+    <!-- HISTORIAL -->
+    <section id="view-historial" class="view">
+      <div class="card">
+        <div class="dh">
+          <h2>🧾 Historial de ventas <small id="histCount"></small></h2>
+          <div class="filts" id="hist-methods">
+            <button class="active" onclick="KP_UI.setHistMethod('todos',this)">Todos</button>
+            <button onclick="KP_UI.setHistMethod('efectivo',this)">Efectivo</button>
+            <button onclick="KP_UI.setHistMethod('transferencia',this)">Transf.</button>
+            <button onclick="KP_UI.setHistMethod('tarjeta',this)">Tarjeta</button>
+          </div>
+        </div>
+        <div class="srch">🔎<input type="text" id="hist-q" placeholder="Buscar por cliente o producto..." oninput="KP_UI.histReset()"></div>
+        <div id="hist-list"></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div id="toasts"></div>
+
+<!-- MODALES -->
+<div id="new-client-ov" class="ov" onclick="if(event.target===this)KP_UI.hideOv('new-client-ov')">
+  <div>
+    <h2>Nuevo Cliente</h2>
+    <form onsubmit="KP_UI.createCustomer(event)">
+      <div class="fld"><label>Nombre</label><input type="text" id="cn" placeholder="Ej: Carlos"></div>
+      <div class="fld"><label>Límite de crédito ($)</label><input type="text" id="cl" inputmode="decimal" placeholder="Ej: 5000"></div>
+      <button type="submit" class="btn solid" style="width:100%;justify-content:center">+ Registrar Cliente</button>
+    </form>
+    <button class="btn sm" onclick="KP_UI.hideOv('new-client-ov')" style="justify-content:center">Cancelar</button>
+  </div>
+</div>
+
+<div id="new-product-ov" class="ov" onclick="if(event.target===this)KP_UI.hideOv('new-product-ov')">
+  <div>
+    <h2>Nuevo Producto</h2>
+    <form onsubmit="KP_UI.createProduct(event)">
+      <div class="fld"><label>Nombre</label><input type="text" id="inv-n" placeholder="Ej: Coca Cola 600ml"></div>
+      <div class="fld"><label>Marca</label><input type="text" id="inv-m" placeholder="Ej: Coca-Cola"></div>
+      <div class="fld"><label>Categoría</label><input type="text" id="inv-c" placeholder="Ej: Bebidas"></div>
+      <div class="fld"><label>Unidad</label><select id="inv-u"><option value="u">Por unidad</option><option value="kg">Por kg</option></select></div>
+      <div class="pef-grid">
+        <div class="fld"><label>Precio venta</label><input type="text" id="inv-p" inputmode="decimal" placeholder="0,00"></div>
+        <div class="fld"><label>Precio compra</label><input type="text" id="inv-bp" inputmode="decimal" value="0"></div>
+      </div>
+      <div class="fld"><label>Stock</label><input type="text" id="inv-s" inputmode="decimal" value="0"></div>
+      <button type="submit" class="btn solid" style="width:100%;justify-content:center">+ Agregar Producto</button>
+    </form>
+    <button class="btn sm" onclick="KP_UI.hideOv('new-product-ov')" style="justify-content:center">Cancelar</button>
+  </div>
+</div>
+
+<div id="price-ov" class="ov">
+  <div>
+    <h2>Monto ambiguo</h2>
+    <p id="priceQ"></p>
+    <button class="btn pricebtn" id="priceA" onclick="KP_UI.pickPrice('a')"></button>
+    <button class="btn pricebtn" id="priceB" onclick="KP_UI.pickPrice('b')"></button>
+  </div>
+</div>
+
+<div id="pay-ov" class="ov">
+  <div>
+    <h2>Confirmar pago</h2>
+    <p id="payInfo"></p>
+    <button class="btn solid" id="payConfirm" style="justify-content:center">Registrar con vuelto</button>
+    <button class="btn sm" onclick="KP_UI.hideOv('pay-ov')" style="justify-content:center">Corregir</button>
+  </div>
+</div>
+
+<div id="weight-ov" class="ov">
+  <div>
+    <h2>Pesar producto</h2>
+    <p id="wName"></p>
+    <div class="fld"><label>Peso (ej: 0,5 — 1.400 — 700g)</label><input type="text" id="wInput" inputmode="decimal" oninput="KP_UI.weightPreview()"></div>
+    <div class="dh"><span class="muted">Total:</span><b id="wTotal" style="color:var(--pr)">$0,00</b></div>
+    <button class="btn solid" onclick="KP_UI.weightConfirm()" style="justify-content:center">Agregar</button>
+    <button class="btn sm" onclick="KP_UI.hideOv('weight-ov')" style="justify-content:center">Cancelar</button>
+  </div>
+</div>
+
+<div id="import-ov" class="ov" onclick="if(event.target===this)KP_UI.hideOv('import-ov')">
+  <div>
+    <h2>🧾 Importar Ticket</h2>
+    <p>Selecciona un archivo ticket-cliente.txt</p>
+    <input type="file" id="import-file" accept=".txt" style="display:none" onchange="KP_UI.handleImportFile(event)">
+    <button class="btn blue" onclick="document.getElementById('import-file').click()" style="justify-content:center">Seleccionar archivo</button>
+    <div id="import-preview" style="display:none;flex-direction:column;gap:10px">
+      <div class="tp" id="import-ticket-content"></div>
+      <div class="dh"><span class="muted">Total a descontar:</span><b id="import-total" style="color:var(--dg)">$0,00</b></div>
+      <button class="btn ok" onclick="KP_UI.applyImportTicket()" style="justify-content:center">✔ Descontar e importar</button>
+    </div>
+    <button class="btn sm" onclick="KP_UI.hideOv('import-ov')" style="justify-content:center">Cancelar</button>
+  </div>
+</div>
+
+<div id="load-ov" class="ov" onclick="if(event.target===this)KP_UI.hideOv('load-ov')">
+  <div>
+    <h2>📁 Cargar Datos</h2>
+    <p>Selecciona un archivo DatosKioskoKp.txt. Esto BORRA todo lo actual y lo reemplaza.</p>
+    <input type="file" id="load-file" accept=".txt" style="display:none" onchange="KP_UI.handleLoadFile(event)">
+    <button class="btn primary" onclick="document.getElementById('load-file').click()" style="justify-content:center">Seleccionar archivo</button>
+    <div id="load-preview" style="display:none;flex-direction:column;gap:10px">
+      <div class="tp" id="load-content"></div>
+      <div class="warnbox">Escribí REEMPLAZAR para habilitar el botón:</div>
+      <input type="text" id="load-confirm" placeholder="REEMPLAZAR">
+      <button class="btn ok" onclick="KP_UI.applyLoadData()" style="justify-content:center">✔ Cargar datos (reemplaza todo)</button>
+    </div>
+    <button class="btn sm" onclick="KP_UI.hideOv('load-ov')" style="justify-content:center">Cancelar</button>
+  </div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/format.js"></script>
+<script src="js/parsers.js"></script>
+<script src="js/db.js"></script>
+<script src="js/store.js"></script>
+<script src="js/app.js"></script>
+<script>
+// KP_UI.fullSyncBtn no existe como método separado: alias simple.
+KP_UI.fullSyncBtn = function () {
+  KP_STORE.fullSync().then(function () { KP_UI.toast(KP_STORE.S.online ? "Sincronizado ✔" : "Sin conexión, reintentando…", KP_STORE.S.online ? "" : "warn"); });
+};
+document.addEventListener("DOMContentLoaded", function () { KP_UI.init(); });
+</script>
+</body>
+</html>
