@@ -17,6 +17,11 @@
     online: false, syncing: false, lastSync: null,
     pending: { customers: [], movements: [], products: [], sales: [], expenses: [], cycles: [] },
     tomb: { customers: [], movements: [], products: [], sales: [], expenses: [], cycles: [] },
+    // Tombstones ya confirmados por la nube (solo memoria, NO se persisten:
+    // al reiniciar se re-pushean una vez, es seguro e idempotente).
+    // Los tombstones NUNCA se borran: un id borrado no debe resucitar
+    // aunque otro dispositivo lo re-inserte (paridad con Flutter).
+    acked: { customers: [], movements: [], products: [], sales: [], expenses: [], cycles: [] },
     listeners: []
   };
 
@@ -61,6 +66,23 @@
     return S.pending.customers.length || S.pending.movements.length || S.pending.products.length ||
       S.pending.sales.length || S.pending.expenses.length || S.pending.cycles.length;
   }
+
+  // Tombstones sin confirmar (falta delete en la nube). Van aparte de
+  // hasPending para que el sync no rote con deletes ya confirmados.
+  function unacked(tombArr, ackArr) {
+    return tombArr.filter(function (v) { return ackArr.indexOf(v) < 0; });
+  }
+  function hasTombstones() {
+    return unacked(S.tomb.customers, S.acked.customers).length ||
+      unacked(S.tomb.movements, S.acked.movements).length ||
+      unacked(S.tomb.products, S.acked.products).length ||
+      unacked(S.tomb.sales, S.acked.sales).length ||
+      unacked(S.tomb.expenses, S.acked.expenses).length ||
+      unacked(S.tomb.cycles, S.acked.cycles).length;
+  }
+  // Marca un id como borrado (tombstone) y lo saca de confirmados para que
+  // el próximo push lo envíe.
+  function addTomb(kind, v) { setAdd(S.tomb[kind], v); setDel(S.acked[kind], v); }
 
   // ---------- lookups ----------
   function getCustomer(id) { for (var i = 0; i < S.customers.length; i++) if (S.customers[i].id === id) return S.customers[i]; return null; }
@@ -346,24 +368,37 @@
           return db().upsert("debt_cycles", cycRows).then(function () { return db().upsert("archived_movements", archRows); });
         })
         .then(function () {
-          // deletes por lote
-          return db().delIn("movements", "customer_id", S.tomb.customers)
-            .then(function () { return db().delIn("customers", "id", S.tomb.customers); })
-            .then(function () { return db().delIn("movements", "id", S.tomb.movements.map(function (k) { return k.slice(k.indexOf("|") + 1); })); })
-            .then(function () { return db().delIn("products", "id", S.tomb.products); })
-            .then(function () { return db().delIn("sale_items", "sale_id", S.tomb.sales); })
-            .then(function () { return db().delIn("sales", "id", S.tomb.sales); })
-            .then(function () { return db().delIn("expenses", "id", S.tomb.expenses); })
+          // deletes por lote, SOLO no-confirmados. Los tombstones NUNCA se
+          // limpian: impiden resurrecciones en pulls futuros.
+          var dc = unacked(S.tomb.customers, S.acked.customers);
+          var dm = unacked(S.tomb.movements, S.acked.movements);
+          var dp = unacked(S.tomb.products, S.acked.products);
+          var ds = unacked(S.tomb.sales, S.acked.sales);
+          var de = unacked(S.tomb.expenses, S.acked.expenses);
+          var dy = unacked(S.tomb.cycles, S.acked.cycles);
+          return db().delIn("movements", "customer_id", dc)
+            .then(function () { return db().delIn("customers", "id", dc); })
+            .then(function () { return db().delIn("movements", "id", dm.map(function (k) { return k.slice(k.indexOf("|") + 1); })); })
+            .then(function () { return db().delIn("products", "id", dp); })
+            .then(function () { return db().delIn("sale_items", "sale_id", ds); })
+            .then(function () { return db().delIn("sales", "id", ds); })
+            .then(function () { return db().delIn("expenses", "id", de); })
             .then(function () {
               if (!withCycles) return null;
-              return db().delIn("archived_movements", "cycle_id", S.tomb.cycles)
-                .then(function () { return db().delIn("debt_cycles", "id", S.tomb.cycles); });
+              return db().delIn("archived_movements", "cycle_id", dy)
+                .then(function () { return db().delIn("debt_cycles", "id", dy); });
+            })
+            .then(function () {
+              // Todo subió: limpiar pendientes y marcar tombstones confirmados.
+              S.pending = { customers: [], movements: [], products: [], sales: [], expenses: [], cycles: [] };
+              dc.forEach(function (v) { setAdd(S.acked.customers, v); });
+              dm.forEach(function (v) { setAdd(S.acked.movements, v); });
+              dp.forEach(function (v) { setAdd(S.acked.products, v); });
+              ds.forEach(function (v) { setAdd(S.acked.sales, v); });
+              de.forEach(function (v) { setAdd(S.acked.expenses, v); });
+              dy.forEach(function (v) { setAdd(S.acked.cycles, v); });
+              persist();
             });
-        })
-        .then(function () {
-          S.pending = { customers: [], movements: [], products: [], sales: [], expenses: [], cycles: [] };
-          S.tomb = { customers: [], movements: [], products: [], sales: [], expenses: [], cycles: [] };
-          persist();
         });
     });
   }
@@ -371,8 +406,7 @@
   function fullSync() {
     if (S.syncing) return Promise.resolve();
     S.syncing = true; emit();
-    var hadPending = hasPending();
-    var doPush = hadPending;
+    var doPush = hasPending() || hasTombstones();
     var chain = doPush ? push().catch(function (e) { S.online = false; throw e; }) : Promise.resolve();
     return chain.then(pull).then(function () {
       S.online = true;
@@ -415,13 +449,13 @@
   function deleteCustomer(id) {
     var c = getCustomer(id);
     if (c) {
-      (c.movements || []).forEach(function (m) { setDel(S.pending.movements, id + "|" + m.id); setAdd(S.tomb.movements, id + "|" + m.id); });
-      (c.history || []).forEach(function (h) { setDel(S.pending.cycles, h.id); setAdd(S.tomb.cycles, h.id); });
+      (c.movements || []).forEach(function (m) { setDel(S.pending.movements, id + "|" + m.id); addTomb("movements", id + "|" + m.id); });
+      (c.history || []).forEach(function (h) { setDel(S.pending.cycles, h.id); addTomb("cycles", h.id); });
     }
     S.customers = S.customers.filter(function (x) { return x.id !== id; });
     if (S.selectedCustomerId === id) S.selectedCustomerId = null;
     setDel(S.pending.customers, id);
-    setAdd(S.tomb.customers, id);
+    addTomb("customers", id);
     markDirty();
   }
   function setInterest(id, days, rate) {
@@ -446,7 +480,7 @@
     c.updatedAt = new Date().toISOString();
     setAdd(S.pending.customers, cid);
     setDel(S.pending.movements, cid + "|" + mid);
-    setAdd(S.tomb.movements, cid + "|" + mid);
+    addTomb("movements", cid + "|" + mid);
     markDirty();
   }
 
@@ -499,7 +533,7 @@
     for (var j = 0; j < c.movements.length; j++) {
       var key = c.id + "|" + c.movements[j].id;
       setDel(S.pending.movements, key);
-      setAdd(S.tomb.movements, key);
+      addTomb("movements", key);
     }
     c.history.unshift(cyc);
     c.movements = [];
@@ -522,7 +556,7 @@
     c.updatedAt = new Date().toISOString();
     setAdd(S.pending.customers, cid);
     setDel(S.pending.cycles, cycleId);
-    setAdd(S.tomb.cycles, cycleId);
+    addTomb("cycles", cycleId);
     markDirty();
   }
 
@@ -570,7 +604,7 @@
     S.inventory = S.inventory.filter(function (p) { return p.id !== id; });
     if (S.selectedProductId === id) S.selectedProductId = null;
     setDel(S.pending.products, id);
-    setAdd(S.tomb.products, id);
+    addTomb("products", id);
     markDirty();
   }
 
@@ -607,7 +641,7 @@
     }
     S.sales = S.sales.filter(function (s) { return s.id !== id; });
     setDel(S.pending.sales, id);
-    setAdd(S.tomb.sales, id);
+    addTomb("sales", id);
     markDirty();
     return ok;
   }
@@ -622,7 +656,7 @@
   function deleteExpense(id) {
     S.expenses = S.expenses.filter(function (e) { return e.id !== id; });
     setDel(S.pending.expenses, id);
-    setAdd(S.tomb.expenses, id);
+    addTomb("expenses", id);
     markDirty();
   }
 
@@ -630,13 +664,13 @@
     var i, j;
     for (i = 0; i < S.customers.length; i++) {
       var c = S.customers[i];
-      setAdd(S.tomb.customers, c.id);
-      for (j = 0; j < (c.movements || []).length; j++) setAdd(S.tomb.movements, c.id + "|" + c.movements[j].id);
-      for (j = 0; j < (c.history || []).length; j++) setAdd(S.tomb.cycles, c.history[j].id);
+      addTomb("customers", c.id);
+      for (j = 0; j < (c.movements || []).length; j++) addTomb("movements", c.id + "|" + c.movements[j].id);
+      for (j = 0; j < (c.history || []).length; j++) addTomb("cycles", c.history[j].id);
     }
-    for (i = 0; i < S.inventory.length; i++) setAdd(S.tomb.products, S.inventory[i].id);
-    for (i = 0; i < S.sales.length; i++) setAdd(S.tomb.sales, S.sales[i].id);
-    for (i = 0; i < S.expenses.length; i++) setAdd(S.tomb.expenses, S.expenses[i].id);
+    for (i = 0; i < S.inventory.length; i++) addTomb("products", S.inventory[i].id);
+    for (i = 0; i < S.sales.length; i++) addTomb("sales", S.sales[i].id);
+    for (i = 0; i < S.expenses.length; i++) addTomb("expenses", S.expenses[i].id);
     S.pending = { customers: [], movements: [], products: [], sales: [], expenses: [], cycles: [] };
     var now = new Date().toISOString();
     S.customers = data.customers || [];

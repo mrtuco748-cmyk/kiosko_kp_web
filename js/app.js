@@ -717,7 +717,7 @@
     var groups = {};
     D().expenses.forEach(function (e) {
       var d = new Date(e.date);
-      var k = d.getFullYear() + "-" + d.getMonth();
+      var k = d.getFullYear() + "-" + F.pad2(d.getMonth() + 1);
       (groups[k] = groups[k] || { d: new Date(d.getFullYear(), d.getMonth(), 1), items: [], sub: 0 }).items.push(e);
       groups[k].sub += e.amount;
     });
