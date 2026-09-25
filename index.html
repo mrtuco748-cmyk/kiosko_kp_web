@@ -77,7 +77,7 @@
 
     <!-- FIADOS -->
     <section id="view-fiados" class="view">
-      <div class="split">
+      <div class="split" id="fiadosSplit">
         <div class="split-left">
           <div class="srch">🔎<input type="text" id="cs" placeholder="Buscar cliente..." oninput="KP_STORE.emit()"></div>
           <button class="btn solid" onclick="KP_UI.showNewClientForm()" style="justify-content:center">+ Nuevo Cliente</button>
@@ -164,7 +164,7 @@
 
     <!-- INVENTARIO -->
     <section id="view-inventario" class="view">
-      <div class="split">
+      <div class="split" id="invSplit">
         <div class="split-left">
           <div class="srch">🔎<input type="text" id="inv-search" placeholder="Buscar producto o marca..." oninput="KP_STORE.emit()"></div>
           <button class="btn solid" onclick="KP_UI.showNewProductForm()" style="justify-content:center">+ Nuevo Producto</button>

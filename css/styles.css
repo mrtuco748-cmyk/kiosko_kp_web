@@ -183,9 +183,29 @@ main{flex:1;padding:16px;overflow-y:auto;max-height:calc(100vh - 57px);min-width
   aside.open{transform:translateX(0)}
   .h-menu{display:inline-flex}
   .split{grid-template-columns:1fr}
+  /* En celular: al elegir cliente/producto se oculta la lista y queda solo
+     el detalle (se vuelve con ◀). Evita scrollear una eternidad. */
+  #fiadosSplit.has-sel .split-left,#invSplit.has-sel .split-left{display:none}
+  .clist{max-height:50vh}
   .maf{grid-template-columns:1fr}
   .fiar-grid{grid-template-columns:1fr 1fr}
+  .fiar-grid>div:first-child{grid-column:1/-1}
   main{max-height:calc(100vh - 57px)}
   .grid-stats{grid-template-columns:1fr 1fr}
   #syncState{display:none}
+}
+@media(max-width:480px){
+  header{padding:8px 10px;gap:8px}
+  .h-name{display:none}
+  .h-right button{padding:6px 8px;font-size:11px}
+  main{padding:12px}
+  .card{padding:14px}
+  .grid-stats{gap:10px}
+  .stat{padding:13px}
+  .stat p{font-size:15px}
+  .cdh{gap:8px}
+  .pef-grid{grid-template-columns:1fr 1fr}
+  .scat{grid-template-columns:repeat(auto-fill,minmax(135px,1fr))}
+  .ac-drop{min-width:0;max-width:calc(100vw - 32px)}
+  .ov>div{padding:18px}
 }

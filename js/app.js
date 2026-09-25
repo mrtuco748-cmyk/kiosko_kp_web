@@ -257,6 +257,8 @@
 
   function renderFiadoDetail() {
     var c = s().getCustomer(D().selectedCustomerId);
+    var sp = $("fiadosSplit");
+    if (sp) sp.classList.toggle("has-sel", !!c);
     if (!c) { $("detailEmpty").style.display = ""; $("dc").style.display = "none"; return; }
     $("detailEmpty").style.display = "none";
     $("dc").style.display = "flex";
@@ -563,6 +565,8 @@
   function selectProduct(id) { D().selectedProductId = id; s().persist(); renderInventario(); }
   function renderInvDetail() {
     var p = s().getProduct(D().selectedProductId);
+    var sp = $("invSplit");
+    if (sp) sp.classList.toggle("has-sel", !!p);
     if (!p) { $("inv-empty").style.display = ""; $("inv-edit").style.display = "none"; return; }
     $("inv-empty").style.display = "none";
     $("inv-edit").style.display = "flex";
