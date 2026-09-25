@@ -300,10 +300,6 @@
         '<button class="btn sm danger" onclick="KP_UI.deleteCycle(\'' + c.id + "','" + h.id + "')\">Borrar</button></div>";
     });
     $("histList").innerHTML = hh || '<p class="muted">Sin ciclos cerrados.</p>';
-    // datalist fiar
-    var dl = "";
-    D().inventory.forEach(function (p) { dl += '<option value="' + F.esc(p.name) + '">'; });
-    $("inv-options").innerHTML = dl;
   }
 
   function showNewClientForm() { $("cn").value = ""; $("cl").value = ""; showOv("new-client-ov"); }
@@ -387,6 +383,72 @@
       toast("Cuenta saldada 🎉");
     };
     showOv("pay-ov");
+  }
+  // ---------- AUTOCOMPLETADO productos (fiado + cobrar) ----------
+  // Coincidencia por nombre O marca, con precio y stock (paridad con el
+  // Autocomplete de fiados_screen.dart). Dropdown propio: visible y
+  // táctil en móvil y desktop.
+  function productMatches(q, limit) {
+    q = String(q || "").trim().toLowerCase();
+    var list = D().inventory.filter(function (p) {
+      if (!q) return true;
+      return p.name.toLowerCase().indexOf(q) >= 0 || (p.brand || "").toLowerCase().indexOf(q) >= 0;
+    });
+    list.sort(function (a, b) { return a.name.localeCompare(b.name); });
+    return list.slice(0, limit || 8);
+  }
+  function acRender(kind) {
+    var box = $(kind === "fiado" ? "ac-fiado" : "ac-cobrar");
+    if (!box) return [];
+    var q = kind === "fiado" ? ($("pn2").value || "") : ($("sale-search").value || "");
+    var ms = productMatches(q, 8);
+    if (!ms.length) {
+      box.innerHTML = '<div class="ac-empty">Sin coincidencias</div>';
+      box.classList.add("open");
+      return ms;
+    }
+    var html = "";
+    ms.forEach(function (p) {
+      var sub = F.esc(p.brand || p.category || "") + " · " + F.esc(F.fmtQty(p.stock, p.unit));
+      html += '<div class="ac-item" onmousedown="KP_UI.acPick(\'' + kind + "','" + p.id + "');return false\">" +
+        "<span>" + F.esc(p.name) + '<br><span class="ac-sub">' + sub + "</span></span>" +
+        '<span class="ac-price">' + F.fmtCurrency(p.price) + (p.unit === "kg" ? "<small>/kg</small>" : "") + "</span></div>";
+    });
+    box.innerHTML = html;
+    box.classList.add("open");
+    return ms;
+  }
+  function acHide(kind) {
+    var box = $(kind === "fiado" ? "ac-fiado" : "ac-cobrar");
+    if (box) box.classList.remove("open");
+  }
+  function acFiadoInput() { autoFillPrice(); acRender("fiado"); }
+  function acCobrarInput() { s().emit(); acRender("cobrar"); }
+  function acKey(kind, ev) {
+    if (ev.key === "Escape") { acHide(kind); return; }
+    if (ev.key === "Enter") {
+      var q = kind === "fiado" ? ($("pn2").value || "") : ($("sale-search").value || "");
+      var ms = productMatches(q, 1);
+      if (kind === "cobrar" && ms.length) {
+        if (ev.preventDefault) ev.preventDefault();
+        acPick("cobrar", ms[0].id);
+      }
+    }
+  }
+  function acPick(kind, id) {
+    var p = s().getProduct(id);
+    acHide(kind);
+    if (!p) return;
+    if (kind === "fiado") {
+      $("pn2").value = p.name;
+      $("pp").value = F.editDecimal(p.price);
+      $("pqHint").textContent = p.unit === "kg" ? "Kg" : "u.";
+      var pp = $("pp");
+      if (pp && pp.focus) pp.focus();
+    } else {
+      $("sale-search").value = "";
+      addToCart(p.id);
+    }
   }
   function autoFillPrice() {
     var q = ($("pn2").value || "").toLowerCase();
@@ -888,6 +950,7 @@
     showNewClientForm: showNewClientForm, createCustomer: createCustomer, renameCustomer: renameCustomer,
     deleteCustomer: deleteCustomer, updateInterestSettings: updateInterestSettings,
     addPayment: addPayment, settleAccount: settleAccount, autoFillPrice: autoFillPrice,
+    acFiadoInput: acFiadoInput, acCobrarInput: acCobrarInput, acPick: acPick, acHide: acHide, acKey: acKey,
     addProductFiado: addProductFiado, addManualAmount: addManualAmount, deleteMovement: deleteMovement,
     archiveCycle: archiveCycle, deleteCycle: deleteCycle, shareClient: shareClient,
     setInvFilter: setInvFilter, selectProduct: selectProduct, showNewProductForm: showNewProductForm,

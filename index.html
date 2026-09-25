@@ -125,7 +125,7 @@
               <div class="cc-b">
                 <form onsubmit="KP_UI.addProductFiado(event)">
                   <div class="fiar-grid">
-                    <div><input type="text" id="pn2" placeholder="Artículo" list="inv-options" oninput="KP_UI.autoFillPrice()" autocomplete="off"><datalist id="inv-options"></datalist></div>
+                    <div class="ac-wrap"><input type="text" id="pn2" placeholder="Artículo" oninput="KP_UI.acFiadoInput()" onfocus="KP_UI.acFiadoInput()" onblur="KP_UI.acHide('fiado')" onkeydown="KP_UI.acKey('fiado',event)" autocomplete="off"><div class="ac-drop" id="ac-fiado"></div></div>
                     <div><input type="text" id="pp" inputmode="decimal" placeholder="Precio"></div>
                     <div><input type="text" id="pq" inputmode="decimal" value="1" placeholder="Cant"><small id="pqHint">u.</small></div>
                     <div><button type="submit" class="btn primary">Fiar</button></div>
@@ -241,7 +241,7 @@
         <div class="split-right">
           <div class="card">
             <h2>Catálogo</h2>
-            <div class="srch">🔎<input type="text" id="sale-search" placeholder="Buscar..." oninput="KP_STORE.emit()"></div>
+            <div class="srch">🔎<div class="ac-wrap" style="flex:1"><input type="text" id="sale-search" placeholder="Buscar..." oninput="KP_UI.acCobrarInput()" onfocus="KP_UI.acCobrarInput()" onblur="KP_UI.acHide('cobrar')" onkeydown="KP_UI.acKey('cobrar',event)" autocomplete="off"><div class="ac-drop" id="ac-cobrar"></div></div></div>
             <div id="sale-catalog" class="scat"></div>
           </div>
         </div>
