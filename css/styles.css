@@ -149,7 +149,7 @@ main{flex:1;padding:16px;overflow-y:auto;max-height:calc(100vh - 57px);min-width
 /* AUTOCOMPLETADO (sugerencias por coincidencia nombre/marca) */
 .ac-wrap{position:relative;flex:1;min-width:0}
 .srch .ac-wrap input{background:transparent;box-shadow:none;padding:6px 0}
-.ac-drop{position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:150;background:var(--bg);border-radius:var(--rs);box-shadow:0 10px 28px rgba(0,0,0,.65);max-height:250px;overflow-y:auto;display:none}
+.ac-drop{position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:150;background:var(--bg);border-radius:var(--rs);box-shadow:0 10px 28px rgba(0,0,0,.65);max-height:300px;overflow-y:auto;display:none}
 .ac-drop.open{display:block}
 .ac-item{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid rgba(255,255,255,.04)}
 .ac-item:last-child{border-bottom:none}
