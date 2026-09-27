@@ -460,6 +460,7 @@
       if (v > total) {
         // SEGUNDA REVISIÓN: supera la deuda → confirmar vuelto / saldo a favor
         $("payInfo").textContent = "Deuda " + F.fmtCurrency(total) + " · Se registra " + F.fmtCurrency(total) + " · Vuelto/saldo a favor " + F.fmtCurrency(v - total);
+        $("payConfirm").textContent = "Registrar con vuelto";
         $("payConfirm").onclick = function () {
           hideOv("pay-ov");
           var r = s().registerPayment(c.id, v, "payment", "Abono");
@@ -487,6 +488,7 @@
     var total = s().customerTotal(c);
     if (!(total > 0)) { toast("Sin deuda", "warn"); return; }
     $("payInfo").textContent = "Deuda " + F.fmtCurrency(total) + " · Se registra " + F.fmtCurrency(total) + " · La cuenta se cierra y pasa al historial.";
+    $("payConfirm").textContent = "Saldar cuenta";
     $("payConfirm").onclick = function () {
       hideOv("pay-ov");
       s().registerPayment(c.id, total, "settle", "Saldo total");
