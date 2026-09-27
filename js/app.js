@@ -1031,6 +1031,13 @@
     syncHash("inventario", id);
     renderInventario();
   }
+  // Botón ◀ del detalle (igual al de fiado): vuelve a la lista sin borrar nada.
+  function deselectProduct() {
+    D().selectedProductId = null;
+    s().persist();
+    syncHash("inventario", null);
+    renderInventario();
+  }
   function renderInvDetail() {
     var p = s().getProduct(D().selectedProductId);
     var sp = $("invSplit");
@@ -1485,7 +1492,7 @@
     addProductFiado: addProductFiado, addManualAmount: addManualAmount, deleteMovement: deleteMovement,
     archiveCycle: archiveCycle, deleteCycle: deleteCycle, shareClient: shareClient,
     shareRetoggle: shareRetoggle, shareCopy: shareCopy, shareSend: shareSend, shareDownload: shareDownload,
-    setInvFilter: setInvFilter, selectProduct: selectProduct, showNewProductForm: showNewProductForm,
+    setInvFilter: setInvFilter, selectProduct: selectProduct, deselectProduct: deselectProduct, showNewProductForm: showNewProductForm,
     createProduct: createProduct, updateProduct: updateProduct, deleteProduct: deleteProduct,
     setPM: setPM, addToCart: addToCart, weightPreview: weightPreview, weightConfirm: weightConfirm,
     cartQty: cartQty, editCartWeight: editCartWeight, cartDel: cartDel,

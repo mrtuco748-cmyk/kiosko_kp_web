@@ -184,7 +184,7 @@
             <p class="muted">Selecciona un producto para ver detalles.</p>
           </div>
           <div class="card" id="inv-edit" style="display:none">
-            <div class="dh"><h2 id="inv-en">-</h2><button class="btn sm danger" onclick="KP_UI.deleteProduct()">Eliminar</button></div>
+            <div class="dh"><div style="display:flex;gap:8px;align-items:center;min-width:0"><button class="btn sm" onclick="KP_UI.deselectProduct()" title="Volver a la lista"><span class="ic sm">arrow_back</span></button><h2 id="inv-en">-</h2></div><button class="btn sm danger" onclick="KP_UI.deleteProduct()">Eliminar</button></div>
             <form onsubmit="KP_UI.updateProduct(event)">
               <div class="pef">
                 <div class="fld"><label>Nombre</label><input type="text" id="inv-en2"></div>
