@@ -96,6 +96,11 @@
       try { window.location.hash = want; } catch (e) {}
     }
     document.title = "MaxiKiosko KP — " + (VIEW_TITLES[v] || "Inicio");
+    // Identidad visual por sección: el CSS usa body[data-view] para teñir
+    // sidebar + tag + filo de cards. Solo decorativo, no toca datos.
+    try { document.body.dataset.view = v; } catch (e) {}
+    var tag = document.getElementById("viewTag");
+    if (tag) tag.textContent = VIEW_TITLES[v] || "Inicio";
   }
   function switchView(v) {
     if (VIEWS.indexOf(v) < 0) v = "inicio";
