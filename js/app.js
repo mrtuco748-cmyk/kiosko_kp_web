@@ -455,6 +455,9 @@
     if (kind === "fiado") {
       // Se precarga "Nombre - Marca" para que la marca quede visible y se
       // guarde en la descripción del fiado (matchedProductByName lo resuelve).
+      // Se guarda el id elegido: con homónimos ("Vino" Balbo/Talacasto) el
+      // match por texto solo no alcanza y el id manda (ver addProductFiado).
+      fiadoPickId = p.id;
       $("pn2").value = p.brand ? p.name + " - " + p.brand : p.name;
       $("pp").value = F.editDecimal(p.price);
       $("pqHint").textContent = p.unit === "kg" ? "Kg" : "u.";
@@ -476,35 +479,54 @@
     var left = t.slice(0, cut).trim();
     return left || t;
   }
+  var fiadoPickId = null;
   function autoFillPrice() {
-    var raw = ($("pn2").value || "").toLowerCase();
-    var q = stripFiadoInputSuffix(raw);
+    var rawIn = $("pn2").value || "";
+    var raw = rawIn.toLowerCase();
+    var q = stripFiadoInputSuffix(rawIn).toLowerCase();
+    var exact = null;
+    var byName = [];
     for (var i = 0; i < D().inventory.length; i++) {
-      var nm = String(D().inventory[i].name || "").toLowerCase();
-      if (nm === q || nm === raw) {
-        $("pp").value = F.editDecimal(D().inventory[i].price);
-        var isKg = D().inventory[i].unit === "kg";
-        $("pq").placeholder = isKg ? "Kg (ej 0,5)" : "Cant";
-        $("pqHint").textContent = isKg ? "Kg" : "u.";
-        return;
-      }
+      var p0 = D().inventory[i];
+      var nm0 = String(p0.name || "").toLowerCase();
+      var br0 = String(p0.brand || "").toLowerCase();
+      if (br0 && (nm0 + " - " + br0 === raw || nm0 + " \u00b7 " + br0 === raw)) { exact = p0; break; }
+      if (nm0 === q) byName.push(p0);
+    }
+    // El match exacto "Nombre - Marca" gana siempre; con nombre pelado solo
+    // se autocompleta si hay UN único producto con ese nombre (si hay dos
+    // "Vino" de distinta marca no se adivina: el usuario debe elegir).
+    var hit = exact || (byName.length === 1 ? byName[0] : null);
+    if (hit) {
+      $("pp").value = F.editDecimal(hit.price);
+      var isKg = hit.unit === "kg";
+      $("pq").placeholder = isKg ? "Kg (ej 0,5)" : "Cant";
+      $("pqHint").textContent = isKg ? "Kg" : "u.";
     }
   }
-  function matchedProductByName(name) {
-    var raw = String(name || "").trim();
-    var q = raw.toLowerCase();
-    var stripped = stripFiadoInputSuffix(raw).toLowerCase();
-    var fallback = null;
+  // Candidatos para lo tipeado: match exacto "Nombre - Marca" + todos los
+  // que comparten el nombre pelado. Separado para distinguir "sin match"
+  // (producto libre, se fía igual) de "ambiguo" (varios con ese nombre:
+  // hay que elegir marca, nunca adivinar el primero).
+  function fiadoCandidates(typed) {
+    var raw = String(typed || "").trim().toLowerCase();
+    var stripped = stripFiadoInputSuffix(typed).toLowerCase();
+    var exact = null;
+    var byName = [];
     for (var i = 0; i < D().inventory.length; i++) {
       var p = D().inventory[i];
       var nm = String(p.name || "").toLowerCase();
-      // Coincidencia exacta con o sin sufijo de marca, o "Nombre - Marca".
-      if (nm === q || nm === stripped) return p;
-      var withDash = nm + " - " + String(p.brand || "").toLowerCase();
-      var withDot = nm + " \u00b7 " + String(p.brand || "").toLowerCase();
-      if ((p.brand && (withDash === q || withDot === q)) && !fallback) fallback = p;
+      var br = String(p.brand || "").toLowerCase();
+      if (br && (nm + " - " + br === raw || nm + " \u00b7 " + br === raw)) { exact = p; break; }
+      if (nm === stripped) byName.push(p);
     }
-    return fallback;
+    return { exact: exact, byName: byName };
+  }
+  function matchedProductByName(name) {
+    var r = fiadoCandidates(name);
+    if (r.exact) return r.exact;
+    if (r.byName.length === 1) return r.byName[0];
+    return null;
   }
   function addProductFiado(ev) {
     ev.preventDefault();
@@ -512,7 +534,34 @@
     if (!c) return;
     var typed = $("pn2").value.trim();
     if (!typed) return;
-    var prod = matchedProductByName(typed);
+    // 1) Lo elegido en la lista manda (id), siempre que el campo siga
+    // mostrando ese producto (si el usuario editó el texto se re-matchea).
+    var prod = null;
+    if (fiadoPickId) {
+      var picked = s().getProduct(fiadoPickId);
+      if (picked) {
+        var pl1 = picked.name + (picked.brand ? " - " + picked.brand : "");
+        var pl2 = picked.name + (picked.brand ? " \u00b7 " + picked.brand : "");
+        var tl = typed.toLowerCase();
+        if (tl === pl1.toLowerCase() || tl === pl2.toLowerCase() ||
+            (!picked.brand && tl === String(picked.name).toLowerCase())) {
+          prod = picked;
+        }
+      }
+    }
+    // 2) Si no hay pick vigente, match por texto (exacto marca o único).
+    if (!prod) prod = matchedProductByName(typed);
+    // 3) Ambigüedad: varios productos con ese nombre y sin marca que los
+    // distinga → NO adivinar (antes fiaba el primero, ej. Balbo en vez de
+    // Talacasto). Se avisa y se reabre la lista para elegir.
+    if (!prod) {
+      var chk = fiadoCandidates(typed);
+      if (!chk.exact && chk.byName.length > 1) {
+        toast("Hay " + chk.byName.length + " '" + stripFiadoInputSuffix(typed) + "': elegí la marca de la lista", "warn");
+        acRender("fiado");
+        return;
+      }
+    }
     // Si el producto existe se usa su nombre/marca del inventario (si el
     // campo trae "Nombre - Marca" precargado no se duplica). Si es un
     // producto libre (sin match) se conserva el texto tal cual.
@@ -527,6 +576,7 @@
       if (!(price > 0)) { toast("Precio inválido", "warn"); return; }
       if (prod && qty > prod.stock) { toast("Stock insuficiente (" + F.fmtQty(prod.stock, prod.unit) + ")", "danger"); return; }
       s().addFiado(c.id, name, price, qty, prod ? prod.id : null, unit, brand);
+      fiadoPickId = null;
       $("pn2").value = ""; $("pp").value = ""; $("pq").value = "1";
       render();
       var qtyLbl = unit === "kg" ? F.fmtQtyShort(qty) + "kg" : String(Math.round(qty));
