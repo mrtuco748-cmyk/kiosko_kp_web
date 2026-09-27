@@ -52,9 +52,27 @@
   }
 
   // ---------- navegación ----------
+  var VIEWS = ["inicio", "fiados", "inventario", "cobrar", "gastos", "historial"];
+  var VIEW_TITLES = { inicio: "Inicio", fiados: "Fiados", inventario: "Inventario", cobrar: "Cobrar", gastos: "Gastos", historial: "Ventas" };
+  // Cada vista tiene su propio link (#/fiados, #/cobrar...): se puede
+  // compartir, recargar y usar atrás/adelante. Solo lectura del hash,
+  // nunca toca datos ni sync.
+  function viewFromHash() {
+    var h = String(window.location.hash || "").replace(/^#\/?/, "").split("?")[0].split("/")[0];
+    return VIEWS.indexOf(h) >= 0 ? h : null;
+  }
+  function syncHash(v) {
+    var want = "#/" + v;
+    if (window.location.hash !== want) {
+      try { window.location.hash = want; } catch (e) {}
+    }
+    document.title = "MaxiKiosko KP — " + (VIEW_TITLES[v] || "Inicio");
+  }
   function switchView(v) {
+    if (VIEWS.indexOf(v) < 0) v = "inicio";
     D().currentView = v;
     s().persist();
+    syncHash(v);
     var btns = document.querySelectorAll(".sb-btn");
     for (var i = 0; i < btns.length; i++) btns[i].classList.toggle("active", btns[i].getAttribute("data-view") === v);
     var views = document.querySelectorAll(".view");
@@ -1332,8 +1350,16 @@
 
   function init() {
     s().restore();
-    var valid = ["inicio", "fiados", "inventario", "cobrar", "gastos", "historial"];
-    if (valid.indexOf(D().currentView) < 0) D().currentView = "inicio";
+    // El link manda: si se abre con #/fiados se entra ahí; si no hay hash,
+    // se respeta la última vista guardada (comportamiento anterior).
+    var fromLink = viewFromHash();
+    if (fromLink) D().currentView = fromLink;
+    if (VIEWS.indexOf(D().currentView) < 0) D().currentView = "inicio";
+    syncHash(D().currentView);
+    window.addEventListener("hashchange", function () {
+      var v = viewFromHash();
+      if (v && v !== D().currentView) switchView(v);
+    });
     s().on(render);
     var btns = document.querySelectorAll(".sb-btn");
     for (var i = 0; i < btns.length; i++) btns[i].classList.toggle("active", btns[i].getAttribute("data-view") === D().currentView);
