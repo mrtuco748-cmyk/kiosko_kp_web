@@ -29,6 +29,11 @@ HTML + CSS + JS puro.
 - **Sync Supabase**: misma URL y tablas que la app, fetch paginado (500),
   upserts y deletes por lote, caché local en `localStorage`, cola de
   pendientes + tombstones, reintento cada 30 s y al volver la conexión.
+- **Links por página y detalle**: cada vista tiene su link (`#/inicio`,
+  `#/fiados`, `#/inventario`, `#/cobrar`, `#/gastos`, `#/historial`) y el
+  cliente/producto abierto también (`#/fiados/<id>`, `#/inventario/<id>`).
+  El botón atrás del celular cierra primero el diálogo, después el detalle
+  (vuelve a la lista) y recién después sale de la página.
 - **Formato es_AR** en todo lo visible: `$12.500,06`, coma decimal, diálogo
   anti-trampa del punto (`1500.000` pregunta miles vs decimal).
 

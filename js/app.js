@@ -58,11 +58,40 @@
   // compartir, recargar y usar atrás/adelante. Solo lectura del hash,
   // nunca toca datos ni sync.
   function viewFromHash() {
-    var h = String(window.location.hash || "").replace(/^#\/?/, "").split("?")[0].split("/")[0];
-    return VIEWS.indexOf(h) >= 0 ? h : null;
+    var st = hashState();
+    return st ? st.view : null;
   }
-  function syncHash(v) {
-    var want = "#/" + v;
+  // Estado completo del link: {view, param} donde param es el id del
+  // cliente/producto seleccionado en fiados/inventario (o null).
+  function hashState() {
+    var h = String(window.location.hash || "").replace(/^#\/?/, "").split("?")[0];
+    var parts = h.split("/");
+    var v = parts[0];
+    if (VIEWS.indexOf(v) < 0) return null;
+    var p = parts[1] || null;
+    if (v !== "fiados" && v !== "inventario") p = null;
+    return { view: v, param: p };
+  }
+  function currentParam(v) {
+    if (v === "fiados") return D().selectedCustomerId;
+    if (v === "inventario") return D().selectedProductId;
+    return null;
+  }
+  // Aplica el id del link a la selección (solo si existe; si el cliente o
+  // producto ya no existe se muestra la lista, sin romper nada).
+  function applyHashParam(st) {
+    if (st.view === "fiados") {
+      var c = st.param ? s().getCustomer(st.param) : null;
+      D().selectedCustomerId = c ? c.id : null;
+    } else if (st.view === "inventario") {
+      var p = st.param ? s().getProduct(st.param) : null;
+      D().selectedProductId = p ? p.id : null;
+    }
+    s().persist();
+  }
+  function syncHash(v, param) {
+    if (param === undefined) param = currentParam(v);
+    var want = "#/" + v + (param ? "/" + param : "");
     if (window.location.hash !== want) {
       try { window.location.hash = want; } catch (e) {}
     }
@@ -72,7 +101,10 @@
     if (VIEWS.indexOf(v) < 0) v = "inicio";
     D().currentView = v;
     s().persist();
-    syncHash(v);
+    // Al cambiar de página se conserva la selección vigente (mismo
+    // comportamiento que antes): el link la refleja para que atrás la
+    // restaure.
+    syncHash(v, currentParam(v));
     var btns = document.querySelectorAll(".sb-btn");
     for (var i = 0; i < btns.length; i++) btns[i].classList.toggle("active", btns[i].getAttribute("data-view") === v);
     var views = document.querySelectorAll(".view");
@@ -273,10 +305,18 @@
   function selectCustomer(id) {
     D().selectedCustomerId = id;
     s().persist();
+    // El detalle suma una entrada al historial: atrás vuelve a la lista
+    // en vez de salir de la página (clave en celular).
+    syncHash("fiados", id);
     renderFiados();
     if (window.innerWidth <= 900) { var dp = $("dp"); if (dp && dp.scrollIntoView) dp.scrollIntoView({ behavior: "smooth" }); }
   }
-  function deselectCustomer() { D().selectedCustomerId = null; s().persist(); renderFiados(); }
+  function deselectCustomer() {
+    D().selectedCustomerId = null;
+    s().persist();
+    syncHash("fiados", null);
+    renderFiados();
+  }
   function sortedMovs(c) { return (c.movements || []).slice().sort(function (a, b) { return new Date(b.date) - new Date(a.date); }); }
 
   function renderFiadoDetail() {
@@ -342,6 +382,8 @@
     var c = s().addCustomer(name, lim);
     hideOv("new-client-ov");
     D().selectedCustomerId = c.id;
+    s().persist();
+    syncHash("fiados", c.id);
     render();
     toast("Cliente registrado: " + name);
   }
@@ -356,6 +398,9 @@
     if (!c) return;
     if (!confirm("¿Eliminar a " + c.name + " con todo su historial?")) return;
     s().deleteCustomer(c.id);
+    // El store ya limpió la selección: el link vuelve a la lista para que
+    // atrás no intente reabrir un cliente que no existe.
+    syncHash("fiados", null);
     render();
     toast("Cliente eliminado", "warn");
   }
@@ -978,7 +1023,14 @@
     $("inv-list").innerHTML = html || '<p class="muted">Sin productos.</p>';
     renderInvDetail();
   }
-  function selectProduct(id) { D().selectedProductId = id; s().persist(); renderInventario(); }
+  function selectProduct(id) {
+    D().selectedProductId = id;
+    s().persist();
+    // Igual que el cliente fiado: el detalle suma entrada al historial para
+    // que atrás vuelva a la lista del inventario en vez de salir.
+    syncHash("inventario", id);
+    renderInventario();
+  }
   function renderInvDetail() {
     var p = s().getProduct(D().selectedProductId);
     var sp = $("invSplit");
@@ -1045,6 +1097,7 @@
     if (!p) return;
     if (!confirm("¿Eliminar " + p.name + "?")) return;
     s().deleteProduct(p.id);
+    syncHash("inventario", null);
     render();
     toast("Producto eliminado", "warn");
   }
@@ -1345,20 +1398,70 @@
   }
 
   // ---------- modales genéricos ----------
-  function showOv(id) { $(id).classList.add("show"); }
-  function hideOv(id) { $(id).classList.remove("show"); }
+  // Cada diálogo suma una entrada al historial: atrás lo cierra en vez de
+  // salir de la página. Pila + bandera para no cerrar de más:
+  // - atrás del navegador: el navegador ya popeó, solo se cierra el tope.
+  // - botón/cancelar: se cierra el DOM al instante y se deshace el push con
+  //   history.back() (el popstate resultante solo limpia la bandera).
+  var ovStack = [];
+  var expectOvPop = false;
+  function showOv(id) {
+    var el = $(id);
+    if (!el || el.classList.contains("show")) return;
+    el.classList.add("show");
+    try { history.pushState({ kpOv: id }, ""); ovStack.push(id); } catch (e) {}
+  }
+  function hideOv(id) {
+    var el = $(id);
+    if (!el || !el.classList.contains("show")) return;
+    el.classList.remove("show");
+    var ti = ovStack.lastIndexOf(id);
+    if (ti < 0) return;
+    var wasTop = ti === ovStack.length - 1;
+    ovStack.splice(ti, 1);
+    if (wasTop) {
+      expectOvPop = true;
+      try { history.back(); } catch (e) { expectOvPop = false; }
+    }
+  }
+  function closeAllOverlays() {
+    var ovs = document.querySelectorAll(".ov.show");
+    for (var i = 0; i < ovs.length; i++) ovs[i].classList.remove("show");
+    ovStack = [];
+    expectOvPop = false;
+  }
 
   function init() {
     s().restore();
-    // El link manda: si se abre con #/fiados se entra ahí; si no hay hash,
-    // se respeta la última vista guardada (comportamiento anterior).
-    var fromLink = viewFromHash();
-    if (fromLink) D().currentView = fromLink;
+    // El link manda: si se abre con #/fiados/<id> se entra directo al
+    // detalle; si no hay hash, se respeta lo último guardado.
+    var fromLink = hashState();
+    if (fromLink) {
+      D().currentView = fromLink.view;
+      applyHashParam(fromLink);
+    }
     if (VIEWS.indexOf(D().currentView) < 0) D().currentView = "inicio";
-    syncHash(D().currentView);
+    syncHash(D().currentView, currentParam(D().currentView));
+    window.addEventListener("popstate", function () {
+      if (expectOvPop) { expectOvPop = false; return; }
+      if (ovStack.length) {
+        var top = ovStack.pop();
+        var el = $(top);
+        if (el) el.classList.remove("show");
+      }
+    });
     window.addEventListener("hashchange", function () {
-      var v = viewFromHash();
-      if (v && v !== D().currentView) switchView(v);
+      // Navegar cierra cualquier diálogo abierto (no se reabre al volver).
+      closeAllOverlays();
+      var st = hashState();
+      if (!st) { syncHash(D().currentView, currentParam(D().currentView)); return; }
+      if (st.view === D().currentView && st.param === currentParam(st.view)) return;
+      D().currentView = st.view;
+      s().persist();
+      applyHashParam(st);
+      syncHash(st.view, currentParam(st.view));
+      render();
+      window.scrollTo(0, 0);
     });
     s().on(render);
     var btns = document.querySelectorAll(".sb-btn");
