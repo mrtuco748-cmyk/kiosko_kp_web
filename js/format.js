@@ -163,6 +163,45 @@
     return name[0].toUpperCase();
   }
 
+  // Descompone la descripción guardada de un fiado tipo producto en
+  // {name, brand, qty}. Formatos aceptados (solo lectura, nunca muta nada):
+  //   nuevo web: "Nombre - Marca x3" / "Nombre - Marca x0,5kg"
+  //   Flutter:   "Nombre · Marca x3" / "Nombre · Marca x0,5kg"
+  //   web vieja: "Nombre x3" / "Nombre x0,5kg"
+  // La cantidad es siempre el sufijo " x<num>[kg]" (última ocurrencia);
+  // la marca es lo que sigue al ÚLTIMO " - " o " · " (los nombres pueden
+  // contener guiones). Sin cantidad reconocible devuelve todo como nombre.
+  function splitFiadoDesc(desc) {
+    var raw = String(desc == null ? "" : desc).trim();
+    if (!raw) return { name: "", brand: "", qty: "" };
+    var qm = /\s+x([\d.,]+\s*kg?|\d+)\s*$/i.exec(raw);
+    if (!qm) return { name: raw, brand: "", qty: "" };
+    var qty = qm[1].replace(/\s+/g, "");
+    var head = raw.slice(0, qm.index).trim();
+    var sep = null;
+    var dash = head.lastIndexOf(" - ");
+    var dot = head.lastIndexOf(" \u00b7 ");
+    if (dash >= 0 && dot >= 0) sep = dash > dot ? { i: dash, len: 3 } : { i: dot, len: 3 };
+    else if (dash >= 0) sep = { i: dash, len: 3 };
+    else if (dot >= 0) sep = { i: dot, len: 3 };
+    if (!sep) return { name: head, brand: "", qty: qty };
+    return {
+      name: head.slice(0, sep.i).trim(),
+      brand: head.slice(sep.i + sep.len).trim(),
+      qty: qty
+    };
+  }
+
+  // Texto visible "Nombre - Marca - xCantidad" (sin marca: "Nombre - xCant").
+  // Solo para mostrar; el dato guardado (description) no se toca.
+  function fiadoDisplay(desc) {
+    var p = splitFiadoDesc(desc);
+    if (!p.qty) return String(desc == null ? "" : desc);
+    if (p.brand) return p.name + " - " + p.brand + " - x" + p.qty;
+    if (p.name) return p.name + " - x" + p.qty;
+    return "x" + p.qty;
+  }
+
   function esc(s) {
     return String(s == null ? "" : s)
       .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
@@ -177,6 +216,7 @@
     fmtQty: fmtQty, itemQtyPrefix: itemQtyPrefix, stockEditText: stockEditText,
     monthLabel: monthLabel, dateDisplay: dateDisplay, formatDateShort: formatDateShort,
     exportDate: exportDate, ticketDate: ticketDate, pad2: pad2,
-    generateId: generateId, avatarName: avatarName, esc: esc
+    generateId: generateId, avatarName: avatarName, esc: esc,
+    splitFiadoDesc: splitFiadoDesc, fiadoDisplay: fiadoDisplay
   };
 })();

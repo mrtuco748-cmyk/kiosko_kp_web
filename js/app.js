@@ -297,8 +297,11 @@
       var out = F.isOutflow(m.type);
       var icon = m.type === "payment" || m.type === "settle" ? "payments" : m.type === "interest" ? "percent" : m.type === "credit" ? "savings" : m.type === "manual" ? "edit" : "shopping_bag";
       var delIc = '<span class="ic sm">delete</span>';
+      // Solo presentación: los fiados de producto se muestran como
+      // "Nombre - Marca - xCantidad" (fiados viejos sin marca: "Nombre - xCant").
+      var shown = m.type === "product" ? F.fiadoDisplay(m.description) : m.description;
       html += '<div class="mi"><div class="mi-left"><span class="mi-icon"><span class="ic sm">'
-        + icon + '</span></span><div class="mi-info"><div class="mi-name">' + F.esc(m.description) + '</div><div class="mi-date">' + F.dateDisplay(m.date) + '</div></div></div>' +
+        + icon + '</span></span><div class="mi-info"><div class="mi-name" title="' + F.esc(shown) + '">' + F.esc(shown) + '</div><div class="mi-date">' + F.dateDisplay(m.date) + '</div></div></div>' +
         '<div class="mi-right"><span class="mi-amt ' + (out ? "pos" : "neg") + '">' + (out ? "&#8722;" : "+") + F.fmtCurrency(m.amount) + '</span><button class="mi-del" title="Eliminar" onclick="KP_UI.deleteMovement(' + "'" + c.id + "','" + m.id + "'" + ')">' + delIc + '</button></div></div>';
     });
     $("ptb").innerHTML = html || '<p class="muted">Sin movimientos.</p>';
@@ -450,7 +453,9 @@
     acHide(kind);
     if (!p) return;
     if (kind === "fiado") {
-      $("pn2").value = p.name;
+      // Se precarga "Nombre - Marca" para que la marca quede visible y se
+      // guarde en la descripción del fiado (matchedProductByName lo resuelve).
+      $("pn2").value = p.brand ? p.name + " - " + p.brand : p.name;
       $("pp").value = F.editDecimal(p.price);
       $("pqHint").textContent = p.unit === "kg" ? "Kg" : "u.";
       var pp = $("pp");
@@ -460,10 +465,23 @@
       addToCart(p.id);
     }
   }
+  function stripFiadoInputSuffix(v) {
+    // Quita un eventual sufijo de marca (" - Marca" / " · Marca") para
+    // matchear contra el inventario. Solo lectura, no muta el campo.
+    var t = String(v || "").trim();
+    var dash = t.lastIndexOf(" - ");
+    var dot = t.lastIndexOf(" \u00b7 ");
+    var cut = dash >= 0 && dot >= 0 ? Math.max(dash, dot) : Math.max(dash, dot);
+    if (cut < 0) return t;
+    var left = t.slice(0, cut).trim();
+    return left || t;
+  }
   function autoFillPrice() {
-    var q = ($("pn2").value || "").toLowerCase();
+    var raw = ($("pn2").value || "").toLowerCase();
+    var q = stripFiadoInputSuffix(raw);
     for (var i = 0; i < D().inventory.length; i++) {
-      if (D().inventory[i].name.toLowerCase() === q) {
+      var nm = String(D().inventory[i].name || "").toLowerCase();
+      if (nm === q || nm === raw) {
         $("pp").value = F.editDecimal(D().inventory[i].price);
         var isKg = D().inventory[i].unit === "kg";
         $("pq").placeholder = isKg ? "Kg (ej 0,5)" : "Cant";
@@ -473,17 +491,33 @@
     }
   }
   function matchedProductByName(name) {
-    var q = String(name || "").toLowerCase();
-    for (var i = 0; i < D().inventory.length; i++) if (D().inventory[i].name.toLowerCase() === q) return D().inventory[i];
-    return null;
+    var raw = String(name || "").trim();
+    var q = raw.toLowerCase();
+    var stripped = stripFiadoInputSuffix(raw).toLowerCase();
+    var fallback = null;
+    for (var i = 0; i < D().inventory.length; i++) {
+      var p = D().inventory[i];
+      var nm = String(p.name || "").toLowerCase();
+      // Coincidencia exacta con o sin sufijo de marca, o "Nombre - Marca".
+      if (nm === q || nm === stripped) return p;
+      var withDash = nm + " - " + String(p.brand || "").toLowerCase();
+      var withDot = nm + " \u00b7 " + String(p.brand || "").toLowerCase();
+      if ((p.brand && (withDash === q || withDot === q)) && !fallback) fallback = p;
+    }
+    return fallback;
   }
   function addProductFiado(ev) {
     ev.preventDefault();
     var c = s().getCustomer(D().selectedCustomerId);
     if (!c) return;
-    var name = $("pn2").value.trim();
-    if (!name) return;
-    var prod = matchedProductByName(name);
+    var typed = $("pn2").value.trim();
+    if (!typed) return;
+    var prod = matchedProductByName(typed);
+    // Si el producto existe se usa su nombre/marca del inventario (si el
+    // campo trae "Nombre - Marca" precargado no se duplica). Si es un
+    // producto libre (sin match) se conserva el texto tal cual.
+    var name = prod ? prod.name : typed;
+    var brand = prod ? (prod.brand || "") : "";
     var unit = prod ? prod.unit : "u";
     var qtyRaw = $("pq").value.trim() || "1";
     var qty = unit === "kg" ? F.parseWeight(qtyRaw) : F.parseAmount(qtyRaw);
@@ -492,10 +526,11 @@
     withPrice($("pp").value, function (price) {
       if (!(price > 0)) { toast("Precio inválido", "warn"); return; }
       if (prod && qty > prod.stock) { toast("Stock insuficiente (" + F.fmtQty(prod.stock, prod.unit) + ")", "danger"); return; }
-      s().addFiado(c.id, name, price, qty, prod ? prod.id : null, unit);
+      s().addFiado(c.id, name, price, qty, prod ? prod.id : null, unit, brand);
       $("pn2").value = ""; $("pp").value = ""; $("pq").value = "1";
       render();
-      toast("Fiado: " + name + " x" + (unit === "kg" ? F.fmtQtyShort(qty) + "kg" : Math.round(qty)));
+      var qtyLbl = unit === "kg" ? F.fmtQtyShort(qty) + "kg" : String(Math.round(qty));
+      toast("Fiado: " + name + (brand ? " - " + brand : "") + " - x" + qtyLbl);
     });
   }
   function addManualAmount(ev) {
@@ -582,8 +617,9 @@
       '<div class="tk-sec"><span class="ic">receipt_long</span> MOVIMIENTOS (' + c.movements.length + ")</div>";
     function row(m) {
       var chip = moveChip(m), out = F.isOutflow(m.type);
+      var shown = m.type === "product" ? F.fiadoDisplay(m.description) : m.description;
       return '<div class="tk-mov"><span class="tk-chip ' + chip.cls + '">' + chip.label + "</span>" +
-        '<span class="tk-desc">' + F.esc(m.description) + "<br><small>" + F.ticketDate(m.date) + "</small></span>" +
+        '<span class="tk-desc">' + F.esc(shown) + "<br><small>" + F.ticketDate(m.date) + "</small></span>" +
         '<span class="tk-amt' + (out ? " out" : "") + '">' + (out ? "−" : "+") + "$" + F.fmt(m.amount) + "</span></div>";
     }
     if (!c.movements.length) {
@@ -735,6 +771,7 @@
     };
     function movRow(m, rx, colW) {
       var chip = moveChip(m), st = chipStyle[chip.cls], out = F.isOutflow(m.type);
+      var shown = m.type === "product" ? F.fiadoDisplay(m.description) : m.description;
       ctx.font = "700 " + (8 * K) + "px sans-serif";
       var cw = ctx.measureText(st[0]).width + 12 * K;
       ctx.fillStyle = st[1]; rr(rx, y, cw, 14 * K, 4 * K); ctx.fill();
@@ -743,7 +780,7 @@
       var amt = (out ? "−" : "+") + "$" + F.fmt(m.amount);
       ctx.font = "700 " + (11 * K) + "px sans-serif";
       var aw = ctx.measureText(amt).width;
-      txt(ell(m.description, colW - cw - aw - 20 * K, "500 " + (10 * K) + "px sans-serif"), ax, y + 9 * K, "500 " + (10 * K) + "px sans-serif", "#111111");
+      txt(ell(shown, colW - cw - aw - 20 * K, "500 " + (10 * K) + "px sans-serif"), ax, y + 9 * K, "500 " + (10 * K) + "px sans-serif", "#111111");
       txt(F.ticketDate(m.date), ax, y + 20 * K, "400 " + (8 * K) + "px sans-serif", "#6B7280");
       txt(amt, rx + colW, y + 12 * K, "700 " + (11 * K) + "px sans-serif", out ? "#065F46" : "#111111", "right");
       y += rowH;

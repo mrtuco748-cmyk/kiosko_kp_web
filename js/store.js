@@ -615,11 +615,21 @@
     markDirty();
   }
 
-  function addFiado(cid, productName, price, qty, productId, unit) {
+  function addFiado(cid, productName, price, qty, productId, unit, brand) {
     var c = getCustomer(cid);
     if (!c || !(qty > 0) || !(price > 0)) return false;
     var isKg = unit === "kg";
-    var desc = isKg ? productName + " x" + f().fmtQtyShort(qty) + "kg" : productName + " x" + Math.round(qty);
+    // Descripción con marca: "Nombre - Marca x3" / "Nombre - Marca x0,5kg".
+    // Sin marca: formato anterior ("Nombre x3"). Se usa " - " (nunca "|")
+    // para no romper el export/import que separa campos con pipes.
+    // La marca viaja solo en el texto: la tabla movements de Supabase no
+    // tiene columna brand y el sync/export copian description verbatim.
+    var cleanName = String(productName || "").replace(/\|/g, " ").trim() || "Producto";
+    var cleanBrand = String(brand == null ? "" : brand).replace(/\|/g, " ").trim();
+    var qtyStr = isKg ? f().fmtQtyShort(qty) + "kg" : String(Math.round(qty));
+    var desc = cleanBrand
+      ? cleanName + " - " + cleanBrand + " x" + qtyStr
+      : cleanName + " x" + qtyStr;
     addMovement(cid, { id: f().generateId(), type: "product", description: desc, amount: f().money(price * qty), date: new Date().toISOString() });
     var prod = productId ? getProduct(productId) : null;
     if (!prod) {
@@ -824,7 +834,8 @@
     t += "Recargo: " + f().trimNumber(c.interestRate) + "% despues de " + c.interestDays + " dias\n" + sep + "\nMOVIMIENTOS:\n";
     var sorted = c.movements.slice().sort(function (a, b) { return new Date(b.date) - new Date(a.date); });
     sorted.forEach(function (m) {
-      t += "  " + f().ticketDate(m.date) + " | " + m.description + " | " + (f().isOutflow(m.type) ? "-" : "+") + "$" + f().fmt(m.amount) + "\n";
+      var shown = m.type === "product" ? f().fiadoDisplay(m.description) : m.description;
+      t += "  " + f().ticketDate(m.date) + " | " + shown + " | " + (f().isOutflow(m.type) ? "-" : "+") + "$" + f().fmt(m.amount) + "\n";
     });
     t += sep + "\nDeuda neta: $" + f().fmt(base) + "\n";
     if (intr > 0) {
@@ -838,7 +849,8 @@
       c.history.forEach(function (h) {
         t += "Ciclo " + f().formatDateShort(cycleStart(h.movements, h.closedAt)) + " → " + f().formatDateShort(h.closedAt) + " · Deuda $" + f().fmt(h.totalDebt) + " · Pagado $" + f().fmt(h.totalPaid) + "\n";
         h.movements.slice().sort(function (a, b) { return new Date(b.date) - new Date(a.date); }).forEach(function (m) {
-          t += "  " + f().ticketDate(m.date) + " | " + m.description + " | " + (f().isOutflow(m.type) ? "-" : "+") + "$" + f().fmt(m.amount) + "\n";
+          var shownH = m.type === "product" ? f().fiadoDisplay(m.description) : m.description;
+          t += "  " + f().ticketDate(m.date) + " | " + shownH + " | " + (f().isOutflow(m.type) ? "-" : "+") + "$" + f().fmt(m.amount) + "\n";
         });
       });
     }
