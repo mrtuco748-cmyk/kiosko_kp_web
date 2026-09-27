@@ -1,0 +1,10 @@
+Sonidos de Kiosko KP Web (carpeta sounds/).
+Licencia: Mixkit Sound Effects License (uso libre comercial y personal,
+no se revenden sueltos). Fuente: https://mixkit.co/free-sound-effects/
+
+- fiado-add.mp3    = "Coins handling" (https://assets.mixkit.co/active_storage/sfx/1939/1939-preview.mp3)
+- abono.mp3        = "Clinking coins" (https://assets.mixkit.co/active_storage/sfx/1993/1993-preview.mp3)
+- cuenta-saldada.mp3 = "Achievement bell" (https://assets.mixkit.co/active_storage/sfx/600/600-preview.mp3)
+- fiado-del.mp3    = "Software interface remove" (https://assets.mixkit.co/active_storage/sfx/2576/2576-preview.mp3)
+- venta.mp3        = "Coin win notification" (https://assets.mixkit.co/active_storage/sfx/1992/1992-preview.mp3)
+- gasto.mp3        = "Money bag drop" (https://assets.mixkit.co/active_storage/sfx/1989/1989-preview.mp3)

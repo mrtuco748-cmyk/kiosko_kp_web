@@ -6,6 +6,33 @@
   function D() { return s().S; }
 
   function $(id) { return document.getElementById(id); }
+
+  // ---------- sonidos (archivos en sounds/*.mp3, créditos en sounds/CREDITS.txt) ----------
+  // Un blip por momento importante: fiar, abono, cuenta saldada, eliminar
+  // fiado, venta y gasto. Todo envuelto en try/catch y con preferencia
+  // persistida: si el audio falla o está apagado, la app sigue igual.
+  var SOUND_FILES = ["fiado-add", "abono", "cuenta-saldada", "fiado-del", "venta", "gasto"];
+  var soundOn = true;
+  try { soundOn = localStorage.getItem("kp_sound") !== "0"; } catch (e) {}
+  var soundCache = {};
+  function playSound(name) {
+    if (!soundOn) return;
+    if (SOUND_FILES.indexOf(name) < 0) return;
+    try {
+      var a = soundCache[name];
+      if (!a) { a = new Audio("sounds/" + name + ".mp3"); a.preload = "auto"; soundCache[name] = a; }
+      a.volume = 0.5;
+      try { a.currentTime = 0; } catch (e2) {}
+      var pr = a.play();
+      if (pr && pr.catch) pr.catch(function () {});
+    } catch (e) {}
+  }
+  function toggleSound() {
+    soundOn = !soundOn;
+    try { localStorage.setItem("kp_sound", soundOn ? "1" : "0"); } catch (e) {}
+    var b = $("soundBtn");
+    if (b) b.innerHTML = '<span class="ic sm">' + (soundOn ? "volume_up" : "volume_off") + "</span>";
+  }
   function toast(msg, type) {
     var ct = $("toasts");
     var t = document.createElement("div");
@@ -253,6 +280,7 @@
       s().addExpense(desc, v);
       dEl.value = ""; aEl.value = "";
       render();
+      playSound("gasto");
       toast("Gasto registrado: " + F.fmtCurrency(v));
     }
     if (amb != null && Math.abs(amb - amt) > 0.005) confirmPrice(aEl.value.trim(), amt, amb, commit);
@@ -437,6 +465,7 @@
           var r = s().registerPayment(c.id, v, "payment", "Abono");
           $("qpa").value = "";
           render();
+          playSound(r.closed ? "cuenta-saldada" : "abono");
           toast(r.closed ? "Cuenta saldada. Saldo a favor " + F.fmtCurrency(r.favor || 0) : "Abono registrado" + ((r.favor || 0) > 0 ? " · a favor " + F.fmtCurrency(r.favor) : ""));
         };
         showOv("pay-ov");
@@ -444,6 +473,7 @@
         var r2 = s().registerPayment(c.id, v, "payment", "Abono");
         $("qpa").value = "";
         render();
+        playSound(r2.closed ? "cuenta-saldada" : "abono");
         toast(r2.closed ? "Cuenta saldada" : "Abono registrado: " + F.fmtCurrency(v));
       }
     }
@@ -461,6 +491,7 @@
       hideOv("pay-ov");
       s().registerPayment(c.id, total, "settle", "Saldo total");
       render();
+      playSound("cuenta-saldada");
       toast("Cuenta saldada");
     };
     showOv("pay-ov");
@@ -647,6 +678,7 @@
       fiadoPickId = null;
       $("pn2").value = ""; $("pp").value = ""; $("pq").value = "1";
       render();
+      playSound("fiado-add");
       var qtyLbl = unit === "kg" ? F.fmtQtyShort(qty) + "kg" : String(Math.round(qty));
       toast("Fiado: " + name + (brand ? " - " + brand : "") + " - x" + qtyLbl);
     });
@@ -663,6 +695,7 @@
       s().addMovement(c.id, { id: F.generateId(), type: "manual", description: reason, amount: F.money(v), date: new Date().toISOString() });
       $("pmr").value = ""; $("pma").value = "";
       render();
+      playSound("fiado-add");
       toast("Deuda agregada: " + F.fmtCurrency(v));
     }
     var amb = F.dotAmbiguity(raw);
@@ -673,6 +706,7 @@
     if (!confirm("¿Eliminar movimiento?")) return;
     s().deleteMovement(cid, mid);
     render();
+    playSound("fiado-del");
     toast("Movimiento eliminado", "warn");
   }
   function archiveCycle() {
@@ -1239,6 +1273,7 @@
       if (last) download("Ticket_" + Date.now() + ".txt", s().saleTicket(last));
     }
     render();
+    playSound("venta");
     toast("Venta cobrada: " + F.fmtCurrency(total));
   }
   function toggleMiniDeuda() { $("mini-deuda-form").classList.toggle("open"); }
@@ -1252,6 +1287,7 @@
       s().addSale({ total: F.money(v), method: D().paymentMethod, clientName: (client ? client + " (mini deuda: " : "(mini deuda: ") + desc + ")", items: [{ name: desc, productId: "_manual", price: F.money(v), quantity: 1, unit: "u" }], date: new Date().toISOString() });
       $("md-desc").value = ""; $("md-amt").value = ""; $("md-client").value = "";
       render();
+      playSound("venta");
       toast("Mini deuda cobrada: " + F.fmtCurrency(v));
     }
     var amb = F.dotAmbiguity(raw);
@@ -1476,6 +1512,13 @@
       window.scrollTo(0, 0);
     });
     s().on(render);
+    // Precarga los sonidos (solo descarga, no reproduce) y refleja la
+    // preferencia guardada en el botón del header.
+    for (var si = 0; si < SOUND_FILES.length; si++) {
+      try { var pa = new Audio("sounds/" + SOUND_FILES[si] + ".mp3"); pa.preload = "auto"; soundCache[SOUND_FILES[si]] = pa; } catch (e) {}
+    }
+    var sb = document.getElementById("soundBtn");
+    if (sb) sb.innerHTML = '<span class="ic sm">' + (soundOn ? "volume_up" : "volume_off") + "</span>";
     var btns = document.querySelectorAll(".sb-btn");
     for (var i = 0; i < btns.length; i++) btns[i].classList.toggle("active", btns[i].getAttribute("data-view") === D().currentView);
     var views = document.querySelectorAll(".view");
@@ -1506,6 +1549,6 @@
     shareSale: shareSale, deleteSale: deleteSale,
     openImportTicket: openImportTicket, handleImportFile: handleImportFile, applyImportTicket: applyImportTicket,
     openLoadData: openLoadData, handleLoadFile: handleLoadFile, applyLoadData: applyLoadData,
-    showOv: showOv, hideOv: hideOv
+    showOv: showOv, hideOv: hideOv, toggleSound: toggleSound
   };
 })();
