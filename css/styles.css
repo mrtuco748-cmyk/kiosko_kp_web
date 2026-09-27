@@ -126,7 +126,7 @@ main{flex:1;padding:16px;overflow-y:auto;max-height:calc(100vh - 57px);min-width
 .cc-h{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;cursor:pointer;font-size:13px;font-weight:600;gap:8px;background:none;box-shadow:none;width:100%;text-align:left}
 .cc-b{display:none;padding:12px 14px;border-top:1px solid rgba(255,255,255,.06);flex-direction:column;gap:10px}
 .cc-b.open{display:flex}
-.cc-h .arr{transition:transform .2s}
+.cc-h .arr{transition:transform .35s}
 .cc-h.open .arr{transform:rotate(180deg)}
 .qar{display:flex;gap:8px;flex-wrap:wrap}
 .paybox{display:flex;gap:6px;flex:1;align-items:center;background:var(--sf);box-shadow:inset 0 2px 6px rgba(0,0,0,.4);padding:6px 10px;border-radius:var(--rs);min-width:200px}
@@ -228,7 +228,7 @@ button .ic{margin:0}
 .tk-foot small{color:#9CA3AF;font-size:7px}
 .tk-div{height:1px;background:#E5E7EB}
 .adv-toggle{background:none;box-shadow:none;color:var(--txl);font-size:11px;padding:4px 0;justify-content:flex-start}
-.adv-toggle .ic{transition:transform .2s}
+.adv-toggle .ic{transition:transform .35s}
 .adv-toggle.open .ic{transform:rotate(180deg)}
 
 /* AUTOCOMPLETADO (sugerencias por coincidencia nombre/marca) */
@@ -264,24 +264,24 @@ button .ic{margin:0}
 .pricebtn{width:100%;justify-content:center;padding:12px}
 
 /* ANIMACIONES SUAVES (solo transform/opacidad: fluido y barato de pintar) */
-button{transition:transform .15s ease,background-color .2s ease,color .2s ease,box-shadow .2s ease,opacity .2s ease}
-input,select,textarea{transition:box-shadow .2s ease}
+button{transition:transform .28s ease,background-color .35s ease,color .35s ease,box-shadow .35s ease,opacity .35s ease}
+input,select,textarea{transition:box-shadow .35s ease}
 input:focus,select:focus,textarea:focus{box-shadow:inset 0 2px 6px rgba(0,0,0,.4),0 0 0 2px var(--c-active)}
-.sb-btn{transition:background-color .2s ease,color .2s ease,box-shadow .25s ease,transform .15s ease}
+.sb-btn{transition:background-color .35s ease,color .35s ease,box-shadow .4s ease,transform .28s ease}
 .sb-btn:active{transform:scale(.98)}
-.stat,.si,.ci,.ex,.sale,.rowline,.mi{transition:transform .18s ease,box-shadow .2s ease,background-color .2s ease}
+.stat,.si,.ci,.ex,.sale,.rowline,.mi{transition:transform .32s ease,box-shadow .35s ease,background-color .35s ease}
 .stat:hover{transform:translateY(-2px)}
 .si:hover{transform:translateY(-2px)}
 .ci:hover,.ex:hover,.sale:hover,.rowline:hover{transform:translateX(2px)}
-.filts button,.pmtgl button{transition:background-color .2s ease,color .2s ease,box-shadow .2s ease,transform .15s ease}
-.mi-del,.sale-acts button,.cc-del,.t-close{transition:color .2s ease,transform .15s ease}
+.filts button,.pmtgl button{transition:background-color .35s ease,color .35s ease,box-shadow .35s ease,transform .28s ease}
+.mi-del,.sale-acts button,.cc-del,.t-close{transition:color .35s ease,transform .28s ease}
 .mi-del:hover,.sale-acts button:hover,.cc-del:hover{transform:scale(1.15)}
-.view.active{animation:viewIn .28s ease}
-.cc-b.open,.md-form.open{animation:dropIn .25s ease}
-.ac-drop.open{animation:dropIn .18s ease}
-.ov.show{animation:fadeIn .2s ease}
-.ov.show>div{animation:popIn .28s cubic-bezier(.2,.9,.3,1.2)}
-.toast{animation:toastIn .3s cubic-bezier(.2,.9,.3,1.15)}
+.view.active{animation:viewIn .5s ease}
+.cc-b.open,.md-form.open{animation:dropIn .45s ease}
+.ac-drop.open{animation:dropIn .35s ease}
+.ov.show{animation:fadeIn .35s ease}
+.ov.show>div{animation:popIn .5s cubic-bezier(.2,.9,.3,1.2)}
+.toast{animation:toastIn .5s cubic-bezier(.2,.9,.3,1.15)}
 @keyframes viewIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 @keyframes dropIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
@@ -292,7 +292,7 @@ input:focus,select:focus,textarea:focus{box-shadow:inset 0 2px 6px rgba(0,0,0,.4
 }
 
 @media(max-width:900px){
-  aside{position:fixed;left:0;top:57px;bottom:0;width:250px;transform:translateX(-105%);transition:transform .25s;box-shadow:0 4px 20px rgba(0,0,0,.5)}
+  aside{position:fixed;left:0;top:57px;bottom:0;width:250px;transform:translateX(-105%);transition:transform .4s ease;box-shadow:0 4px 20px rgba(0,0,0,.5)}
   aside.open{transform:translateX(0)}
   .h-menu{display:inline-flex}
   .split{grid-template-columns:1fr}
