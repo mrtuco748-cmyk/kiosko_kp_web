@@ -65,8 +65,17 @@ aside{width:220px;flex-shrink:0;background:var(--sf);padding:12px 8px;display:fl
 .sb-btn .badge{background:var(--dg);color:#fff;font-size:11px;font-weight:700;padding:1px 7px;border-radius:10px;margin-left:auto}
 
 main{flex:1;padding:16px;overflow-y:auto;max-height:calc(100vh - 57px);min-width:0}
-.view{display:none;flex-direction:column;gap:16px;max-width:1300px;margin:0 auto;width:100%}
+.view{display:none;flex-direction:column;gap:16px;max-width:1300px;margin:0 auto;width:100%;position:relative}
 .view.active{display:flex}
+/* FONDOS POR SECCIÓN: imagen opaca + velo verde oscuro encima (solo decorativo). */
+.view>*{position:relative;z-index:1}
+#view-fiados::before,#view-inventario::before,#view-cobrar::before{
+  content:"";position:absolute;inset:0;border-radius:var(--r);z-index:0;
+  background-color:var(--bg);background-size:cover;background-position:center;background-repeat:no-repeat;
+}
+#view-fiados::before{background-image:linear-gradient(rgba(15,31,20,.87),rgba(15,31,20,.87)),url('../images/fiados.png')}
+#view-inventario::before{background-image:linear-gradient(rgba(15,31,20,.87),rgba(15,31,20,.87)),url('../images/inventario.png')}
+#view-cobrar::before{background-image:linear-gradient(rgba(15,31,20,.87),rgba(15,31,20,.87)),url('../images/cobrar.png')}
 .card{background:var(--sf);padding:16px;border-radius:var(--r);box-shadow:0 2px 8px rgba(0,0,0,.35);display:flex;flex-direction:column;gap:12px}
 .card h2{font-size:15px;font-weight:600}
 .card h3{font-size:13px;font-weight:600}
