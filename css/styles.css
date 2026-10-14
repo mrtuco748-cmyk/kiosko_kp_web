@@ -813,15 +813,29 @@ main::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.24);background-
 .t-close:hover{color:var(--tx);background:rgba(255,255,255,.1);transform:scale(1.1)}
 
 /* ---------- 17. OVERLAYS / MODALES ---------- */
+/* El fondo oscuro va en un pseudo-elemento con transición, y NO como
+   opacidad del overlay: si la visibilidad dependiera de una animación que
+   termina, un fallo de compositing (backdrop-filter + position:fixed en
+   Chromium) dejaba el cartel invisible pero igual clickeable. Así el
+   overlay abre SIEMPRE pintado y solo el velo se desvanece. */
 .ov{
   display:none;position:fixed;inset:0;z-index:300;
   justify-content:center;align-items:center;padding:22px;
-  background:rgba(3,8,5,.76);
   -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
 }
+.ov::before{
+  content:"";position:absolute;inset:0;
+  background:rgba(3,8,5,.76);opacity:0;
+  transition:opacity .3s ease;
+}
 .ov.show{display:flex}
+.ov.show::before{opacity:1}
+/* max-height:100% y no 88vh: el 100% es respecto del content box del overlay,
+   que ya descuenta su propio padding. Con 88vh se sumaban padding + vh y en
+   pantallas bajas el dialogo se salia por arriba y por abajo. */
 .ov>div{
-  width:100%;max-width:480px;max-height:88vh;overflow-y:auto;
+  position:relative;z-index:1;   /* por encima del velo ::before */
+  width:100%;max-width:480px;max-height:100%;overflow-y:auto;
   display:flex;flex-direction:column;gap:16px;padding:28px;
   border-radius:26px;
   background:linear-gradient(180deg,rgba(24,42,31,.99),rgba(13,28,19,.99));
@@ -842,6 +856,32 @@ main::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.24);background-
   border-radius:var(--rs);padding:14px;font-size:14px;color:var(--wr);text-align:left;font-weight:600;
 }
 .pricebtn{width:100%;min-height:60px;font-size:18px;font-weight:750}
+
+/* --- Diálogo propio de confirmar / pedir valor ---
+   Reemplaza a confirm()/prompt() del navegador. Icono + boton destructivo
+   en rojo, para que "borrar" nunca se confunda con una accion normal. */
+.ov>div.dlg{align-items:center;text-align:center;gap:0}
+.dlg-icon{
+  display:grid;place-items:center;
+  width:74px;height:74px;border-radius:50%;
+  margin-bottom:18px;flex-shrink:0;
+  background:rgba(225,29,72,.16);
+  border:2px solid rgba(251,113,133,.45);
+  box-shadow:0 0 0 10px rgba(225,29,72,.06);
+}
+.dlg-icon .ic{font-size:40px;color:#fda4af}
+/* Pedir un valor (peso) no es warnear: icono y halo en azul. */
+.dlg-icon.info{background:rgba(59,130,246,.16);border-color:rgba(96,165,250,.45);box-shadow:0 0 0 10px rgba(59,130,246,.06)}
+.dlg-icon.info .ic{color:#93c5fd}
+.dlg-msg{
+  font-size:17px;color:var(--tx);text-align:center;line-height:1.5;
+  margin:10px 0 22px;max-width:380px;
+}
+#dlgInputWrap{text-align:left;width:100%;margin-bottom:18px}
+#dlgHint{font-size:13px;color:var(--wr);margin-top:8px;min-height:18px}
+.dlg-acts{display:flex;gap:12px;width:100%}
+.dlg-acts button{flex:1;min-height:60px;font-size:17px;font-weight:750}
+.dlg-acts .btn.danger{flex:1.4}
 
 /* ---------- 18. TICKET DE MARCA ---------- */
 /* El ticket se exporta como imagen/texto: mantiene su look de papel
@@ -903,7 +943,6 @@ main::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.24);background-
 .view.active{animation:viewIn .5s var(--ease)}
 .cc-b.open{animation:dropIn .42s var(--ease)}
 .ac-drop.open{animation:dropIn .32s var(--ease)}
-.ov.show{animation:fadeIn .3s ease}
 .ov.show>div{animation:modalIn .5s var(--ease)}
 .toast{animation:toastIn .5s var(--ease)}
 /* Filo superior de cada tarjeta entra en cascada. */

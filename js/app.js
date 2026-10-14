@@ -447,13 +447,14 @@
   function deleteCustomer() {
     var c = s().getCustomer(D().selectedCustomerId);
     if (!c) return;
-    if (!confirm("¿Eliminar a " + c.name + " con todo su historial?")) return;
-    s().deleteCustomer(c.id);
-    // El store ya limpió la selección: el link vuelve a la lista para que
-    // atrás no intente reabrir un cliente que no existe.
-    syncHash("fiados", null);
-    render();
-    toast("Cliente eliminado", "warn");
+    askConfirm("¿Eliminar a " + c.name + " con todo su historial?", "Sí, eliminar", function () {
+      s().deleteCustomer(c.id);
+      // El store ya limpió la selección: el link vuelve a la lista para que
+      // atrás no intente reabrir un cliente que no existe.
+      syncHash("fiados", null);
+      render();
+      toast("Cliente eliminado", "warn");
+    });
   }
   function updateInterestSettings() {
     var c = s().getCustomer(D().selectedCustomerId);
@@ -723,24 +724,27 @@
     else commit(amt);
   }
   function deleteMovement(cid, mid) {
-    if (!confirm("¿Eliminar movimiento?")) return;
-    s().deleteMovement(cid, mid);
-    render();
-    playSound("fiado-del");
-    toast("Movimiento eliminado", "warn");
+    askConfirm("¿Eliminar movimiento?", "Sí, eliminar", function () {
+      s().deleteMovement(cid, mid);
+      render();
+      playSound("fiado-del");
+      toast("Movimiento eliminado", "warn");
+    });
   }
   function archiveCycle() {
     var c = s().getCustomer(D().selectedCustomerId);
     if (!c || !c.movements.length) return;
-    if (!confirm("¿Archivar ciclo actual? El saldo pendiente se condona y queda registrado.")) return;
-    s().archiveCycleManual(c.id);
-    render();
-    toast("Ciclo archivado");
+    askConfirm("¿Archivar ciclo actual? El saldo pendiente se condona y queda registrado.", "Sí, archivar", function () {
+      s().archiveCycleManual(c.id);
+      render();
+      toast("Ciclo archivado");
+    });
   }
   function deleteCycle(cid, hid) {
-    if (!confirm("¿Borrar ciclo del historial?")) return;
-    s().deleteCycle(cid, hid);
-    render();
+    askConfirm("¿Borrar ciclo del historial?", "Sí, borrar", function () {
+      s().deleteCycle(cid, hid);
+      render();
+    });
   }
   // ---------- COMPARTIR FIADO (fiel a _shareClient/_buildTicketWidget) ----------
   // Modal con vista previa del ticket marca + Opciones avanzadas (historial)
@@ -1161,11 +1165,12 @@
   function deleteProduct() {
     var p = s().getProduct(D().selectedProductId);
     if (!p) return;
-    if (!confirm("¿Eliminar " + p.name + "?")) return;
-    s().deleteProduct(p.id);
-    syncHash("inventario", null);
-    render();
-    toast("Producto eliminado", "warn");
+    askConfirm("¿Eliminar " + p.name + "?", "Sí, eliminar", function () {
+      s().deleteProduct(p.id);
+      syncHash("inventario", null);
+      render();
+      toast("Producto eliminado", "warn");
+    });
   }
 
   // ---------- COBRAR ----------
@@ -1237,14 +1242,20 @@
   function editCartWeight(idx) {
     var it = D().cart[idx];
     if (!it) return;
-    var raw = prompt("Peso en kg para " + it.name + " (ej 0,5 - 700g):", F.fmtQtyShort(it.quantity));
-    if (raw == null) return;
-    var w = F.parseWeight(raw);
-    if (!(w > 0)) { toast("Peso inválido", "warn"); return; }
     var p = s().productForItem(it);
-    if (p && w > p.stock + 1e-9) { toast("Supera el stock", "danger"); return; }
-    it.quantity = w;
-    s().persist(); renderCobrar();
+    askPrompt(
+      "Peso en kg para " + it.name,
+      "Peso (ej 0,5 - 700g)",
+      F.fmtQtyShort(it.quantity),
+      "Guardar",
+      function (raw) {
+        var w = F.parseWeight(raw);
+        if (!(w > 0)) { toast("Peso inválido", "warn"); return; }
+        if (p && w > p.stock + 1e-9) { toast("Supera el stock", "danger"); return; }
+        it.quantity = w;
+        s().persist(); renderCobrar();
+      }
+    );
   }
   function cartDel(idx) { D().cart.splice(idx, 1); s().persist(); renderCobrar(); }
   function renderCobrar() {
@@ -1338,9 +1349,10 @@
     $("gastos-list").innerHTML = html || '<p class="muted">Sin gastos.</p>';
   }
   function deleteExpense(id) {
-    if (!confirm("¿Eliminar gasto?")) return;
-    s().deleteExpense(id);
-    render();
+    askConfirm("¿Eliminar gasto?", "Sí, eliminar", function () {
+      s().deleteExpense(id);
+      render();
+    });
   }
 
   // ---------- HISTORIAL ----------
@@ -1396,10 +1408,11 @@
     download("Ticket_" + id.slice(0, 8) + ".txt", t);
   }
   function deleteSale(id) {
-    if (!confirm("¿Anular venta y devolver stock?")) return;
-    var ok = s().deleteSale(id);
-    render();
-    toast(ok ? "Venta anulada, stock devuelto" : "Venta anulada (algún producto ya no existe)", ok ? "" : "warn");
+    askConfirm("¿Anular venta y devolver stock?", "Sí, anular", function () {
+      var ok = s().deleteSale(id);
+      render();
+      toast(ok ? "Venta anulada, stock devuelto" : "Venta anulada (algún producto ya no existe)", ok ? "" : "warn");
+    });
   }
 
   // ---------- importar / cargar ----------
@@ -1466,6 +1479,61 @@
     toast("Datos cargados y sincronizando…");
   }
 
+  // ---------- CONFIRM / PROMPT PROPIOS ----------
+  // Antes se usaba confirm() y prompt() del navegador: son carteles del
+  // sistema, se ven ajenos al tema y en celular los dibuja el SO por encima
+  // de todo. Estos van por el mismo stack de overlays que el resto de los
+  // modales, asi que "atrás" los cierra y el velo oscurecido los integra.
+  var dlgCb = null, dlgKind = "confirm";
+  function askConfirm(msg, okLabel, cb) {
+    openDlg("confirm", msg, okLabel || "Confirmar");
+    dlgCb = cb;
+  }
+  function askPrompt(msg, label, value, okLabel, cb) {
+    openDlg("prompt", msg, okLabel || "Aceptar", label);
+    dlgCb = cb;
+    var i = $("dlgInput");
+    i.value = value == null ? "" : String(value);
+    dlgLive();
+    try { i.focus(); i.select(); } catch (e) {}
+  }
+  function openDlg(kind, msg, okLabel, label) {
+    dlgKind = kind;
+    $("dlgMsg").textContent = msg;
+    $("dlgTitle").textContent = kind === "prompt" ? "Editar peso" : "Confirmar";
+    $("dlgIcon").className = "dlg-icon" + (kind === "prompt" ? " info" : "");
+    $("dlgIcon").innerHTML = '<span class="ic">' + (kind === "prompt" ? "edit" : "warning") + "</span>";
+    var ok = $("dlgOk");
+    ok.textContent = okLabel;
+    // Un confirm nunca queda deshabilitado. dlgLive() deshabilita Guardar si
+    // el peso es invalido, y si no se limpiara aca el boton seguiria muerto
+    // en el proximo confirm que se abriera.
+    ok.disabled = false;
+    // Borrar es destructivo (rojo); editar un peso es una acción normal.
+    ok.className = kind === "prompt" ? "btn primary" : "btn danger";
+    $("dlgInputWrap").style.display = kind === "prompt" ? "" : "none";
+    if (label) $("dlgLabel").textContent = label;
+    $("dlgHint").textContent = "";
+    showOv("dlg-ov");
+  }
+  function dlgLive() {
+    var ok = $("dlgOk");
+    if (dlgKind !== "prompt") return;
+    var ok2 = F.parseWeight($("dlgInput").value) > 0;
+    ok.disabled = !ok2;
+    $("dlgHint").textContent = ok2 ? "" : "Escribí un peso mayor a 0 (0,5 · 1.400 · 700g)";
+  }
+  function dlgSubmit(ev) {
+    if (ev) ev.preventDefault();
+    var cb = dlgCb, kind = dlgKind;
+    dlgCb = null;
+    hideOv("dlg-ov");
+    if (!cb) return;
+    if (kind === "prompt") cb($("dlgInput").value);
+    else cb(true);
+  }
+  function dlgCancel() { dlgCb = null; hideOv("dlg-ov"); }
+
   // ---------- modales genéricos ----------
   // Cada diálogo suma una entrada al historial: atrás lo cierra en vez de
   // salir de la página. Pila + bandera para no cerrar de más:
@@ -1473,7 +1541,11 @@
   // - botón/cancelar: se cierra el DOM al instante y se deshace el push con
   //   history.back() (el popstate resultante solo limpia la bandera).
   var ovStack = [];
-  var expectOvPop = false;
+  // Contador, no booleano: cada hideOv del tope dispara un history.back() y
+  // los popstate llegan después, en cola. Con un solo boolean el primer
+  // popstate lo consumía y los siguientes caían en la rama de cierre, que
+  // cerraba el overlay que se acababa de abrir.
+  var pendingOvPops = 0;
   function showOv(id) {
     var el = $(id);
     if (!el || el.classList.contains("show")) return;
@@ -1489,15 +1561,16 @@
     var wasTop = ti === ovStack.length - 1;
     ovStack.splice(ti, 1);
     if (wasTop) {
-      expectOvPop = true;
-      try { history.back(); } catch (e) { expectOvPop = false; }
+      pendingOvPops++;
+      try { history.back(); } catch (e) { pendingOvPops--; }
     }
   }
   function closeAllOverlays() {
     var ovs = document.querySelectorAll(".ov.show");
     for (var i = 0; i < ovs.length; i++) ovs[i].classList.remove("show");
     ovStack = [];
-    expectOvPop = false;
+    pendingOvPops = 0;
+    dlgCb = null;
   }
 
   function init() {
@@ -1512,11 +1585,14 @@
     if (VIEWS.indexOf(D().currentView) < 0) D().currentView = "inicio";
     syncHash(D().currentView, currentParam(D().currentView));
     window.addEventListener("popstate", function () {
-      if (expectOvPop) { expectOvPop = false; return; }
+      if (pendingOvPops > 0) { pendingOvPops--; return; }
       if (ovStack.length) {
         var top = ovStack.pop();
         var el = $(top);
         if (el) el.classList.remove("show");
+        // Cerrar el diálogo con "atrás" es cancelar: el callback pendiente
+        // se descarta para que no se ejecute la acción.
+        if (top === "dlg-ov") dlgCb = null;
       }
     });
     window.addEventListener("hashchange", function () {
@@ -1533,6 +1609,14 @@
       window.scrollTo(0, 0);
     });
     s().on(render);
+    // Escape cierra el overlay de arriba, como hacían los diálogos nativos
+    // del navegador que se reemplazaron.
+    document.addEventListener("keydown", function (e) {
+      if (e.key !== "Escape" && e.key !== "Esc") return;
+      if (!ovStack.length) return;
+      var top = ovStack[ovStack.length - 1];
+      if (top === "dlg-ov") dlgCancel(); else hideOv(top);
+    });
     // Precarga los sonidos (solo descarga, no reproduce) y refleja la
     // preferencia guardada en el botón del header.
     for (var si = 0; si < SOUND_FILES.length; si++) {
@@ -1570,6 +1654,8 @@
     shareSale: shareSale, deleteSale: deleteSale,
     openImportTicket: openImportTicket, handleImportFile: handleImportFile, applyImportTicket: applyImportTicket,
     openLoadData: openLoadData, handleLoadFile: handleLoadFile, applyLoadData: applyLoadData,
-    showOv: showOv, hideOv: hideOv, toggleSound: toggleSound
+    showOv: showOv, hideOv: hideOv, toggleSound: toggleSound,
+    askConfirm: askConfirm, askPrompt: askPrompt,
+    dlgSubmit: dlgSubmit, dlgCancel: dlgCancel, dlgLive: dlgLive
   };
 })();

@@ -433,6 +433,30 @@
   </div>
 </div>
 
+<!-- Diálogo propio de confirmar / pedir un valor.
+     Reemplaza a confirm() y prompt() del navegador: los nativos son carteles
+     del sistema operativo, se ven ajenos al tema y en celular los dibuja el
+     SO por encima de todo. Este entra en el mismo stack de overlays, así que
+     el botón "atrás" del navegador lo cierra como cualquier otro modal. -->
+<div id="dlg-ov" class="ov" onclick="if(event.target===this)KP_UI.dlgCancel()">
+  <div class="dlg" style="max-width:440px">
+    <div class="dlg-icon" id="dlgIcon"><span class="ic">warning</span></div>
+    <h2 id="dlgTitle">Confirmar</h2>
+    <p id="dlgMsg" class="dlg-msg"></p>
+    <form onsubmit="KP_UI.dlgSubmit(event)">
+      <div class="fld" id="dlgInputWrap" style="display:none">
+        <label id="dlgLabel">Valor</label>
+        <input type="text" id="dlgInput" autocomplete="off" oninput="KP_UI.dlgLive()">
+        <div class="muted" id="dlgHint"></div>
+      </div>
+      <div class="dlg-acts">
+        <button type="button" class="btn ghost" onclick="KP_UI.dlgCancel()">Cancelar</button>
+        <button type="submit" class="btn danger" id="dlgOk">Confirmar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <script src="js/config.js"></script>
 <script src="js/format.js"></script>
 <script src="js/parsers.js"></script>
