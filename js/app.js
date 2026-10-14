@@ -399,7 +399,10 @@
     var lim = c.limit > 0 ? " · Límite " + F.fmtCurrency(c.limit) : "";
     $("ctd").textContent = F.fmtCurrency(t);
     $("ctd").className = "tb-num " + (t > 0 ? "neg" : "pos");
-    $("ctdLabel").textContent = t < 0 ? "Saldo a favor:" : "Deuda total:" + lim;
+    // El limite va en su propia linea: pegado al rotulo quedaba
+    // "Deuda total: · Límite $300.000,00", con el separador al lado del colon.
+    $("ctdLabel").innerHTML = (t < 0 ? "Saldo a favor:" : "Deuda total:") +
+      (lim ? '<small class="tb-lim">' + F.esc(lim.replace(/^ · /, "")) + "</small>" : "");
     // movimientos
     var html = "";
     sortedMovs(c).forEach(function (m) {

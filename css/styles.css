@@ -372,11 +372,11 @@ aside{
 #view-fiados::before,#view-inventario::before,#view-cobrar::before{
   content:"";position:absolute;inset:0;border-radius:var(--r);z-index:0;
   background-size:cover;background-position:center;background-repeat:no-repeat;
-  opacity:.2;pointer-events:none;
+  opacity:.14;pointer-events:none;
 }
-#view-fiados::before{background-image:linear-gradient(rgba(8,18,12,.72),rgba(8,18,12,.82)),url('../images/fiados.png')}
-#view-inventario::before{background-image:linear-gradient(rgba(8,18,12,.72),rgba(8,18,12,.82)),url('../images/inventario.png')}
-#view-cobrar::before{background-image:linear-gradient(rgba(8,18,12,.72),rgba(8,18,12,.82)),url('../images/cobrar.png')}
+#view-fiados::before{background-image:linear-gradient(rgba(8,18,12,.78),rgba(8,18,12,.86)),url('../images/fiados.png')}
+#view-inventario::before{background-image:linear-gradient(rgba(8,18,12,.78),rgba(8,18,12,.86)),url('../images/inventario.png')}
+#view-cobrar::before{background-image:linear-gradient(rgba(8,18,12,.78),rgba(8,18,12,.86)),url('../images/cobrar.png')}
 
 /* ---------- 8. LAYOUT, TARJETAS Y VISTAS ---------- */
 main{flex:1;min-height:0;padding:24px;overflow-y:auto;overflow-x:hidden;min-width:0;scroll-behavior:smooth}
@@ -412,26 +412,32 @@ main::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.24);background-
 }
 .dh{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
 
-.hero{text-align:center;padding:26px 20px;align-items:center}
+/* El hero es identitario, no informativo: en pantallas grandes se achica
+   para no gastar medio scroll de la vista mas usada, y en celular mantiene
+   el salto de marca. */
+.hero{text-align:center;padding:20px 20px 22px;align-items:center;gap:4px}
 .hero h1{
-  font-size:40px;font-weight:850;letter-spacing:-1.4px;
+  font-size:clamp(26px,2.4vw,34px);font-weight:850;letter-spacing:-1.1px;
   background:linear-gradient(120deg,var(--pr),var(--c-active) 55%,#eaf6ee);
   -webkit-background-clip:text;background-clip:text;color:transparent;
 }
-.hero p{color:var(--txl);font-size:16px;margin-top:6px}
+.hero p{color:var(--txl);font-size:15px}
 
 /* ---------- 9. INICIO (stats) ---------- */
 .grid-stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px}
 .stat{
   position:relative;overflow:hidden;
   text-align:left;color:var(--tx);
-  flex-direction:column;align-items:flex-start;gap:8px;
-  min-height:126px;padding:20px 22px;
+  flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:10px;
+  min-height:108px;padding:18px 20px;
   border-radius:var(--r);
   border:1px solid var(--line);
   background:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.03));
   box-shadow:var(--el-1);
 }
+/* justify-content:flex-start (y no center): con el contenido centrado, las
+   tarjetas de una sola linea de texto ("Mayor deudor") bajan la etiqueta y
+   los rotulos de una misma fila quedan desalineados. Arriba van todos. */
 .stat::after{
   content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
   background:radial-gradient(120px 90px at 100% 0%,color-mix(in srgb,var(--sc) 22%,transparent),transparent 70%);
@@ -444,7 +450,12 @@ main::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.24);background-
   letter-spacing:1.1px;font-weight:750;
 }
 .stat p{font-size:29px;font-weight:800;line-height:1.15;word-break:break-word;letter-spacing:-.8px}
-.stat[style*="font-size:13px"] p{font-size:19px;font-weight:700;letter-spacing:-.2px;line-height:1.3;padding-top:6px}
+/* Tarjetas cuyo valor es texto y no un monto (el nombre del mayor deudor):
+   mismo peso visual, pero en un cuerpo legible y con recorte si es largo. */
+.stat p.stat-name{
+  font-size:21px;letter-spacing:-.3px;line-height:1.3;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+}
 
 .rowline{
   display:flex;justify-content:space-between;align-items:center;gap:14px;
@@ -635,7 +646,8 @@ main::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.24);background-
   border:1px solid var(--line2);
   box-shadow:var(--el-2),inset 0 1px 0 rgba(255,255,255,.12);
 }
-.tb-label{font-size:15px;color:var(--txl);font-weight:600}
+.tb-label{font-size:15px;color:var(--txl);font-weight:600;display:flex;flex-direction:column;gap:2px}
+.tb-lim{font-size:13px;color:var(--txd);font-weight:600}
 .tb-num{font-size:40px;font-weight:850;letter-spacing:-1.4px;line-height:1}
 
 /* ---------- 12. INVENTARIO ---------- */
@@ -1087,6 +1099,13 @@ button.btn:hover::after{transform:translateX(120%);opacity:1}
   .maf{grid-template-columns:1fr}
   .fiar-grid{grid-template-columns:1fr 1fr}
   .fiar-grid>div:first-child{grid-column:1/-1}
+  /* El boton ocupa las dos columnas: antes caia en la primera y dejaba un
+     hueco del tamaño de una columna al lado. La celda ya spans, falta que el
+     boton de adentro se estire. */
+  .fiar-grid>div:last-child{grid-column:1/-1}
+  .fiar-grid>div:last-child .btn{width:100%}
+  /* "Saldar Todo" a lo ancho de la fila, como el campo de abono. */
+  .qar>.btn{flex:1 0 100%}
   #syncState{display:none}
   /* El header no entra en un celular: el boton de menu, el logo y cuatro
      utilidades no dejan lugar para el tag de seccion (la barra de abajo
@@ -1169,12 +1188,12 @@ button.btn:hover::after{transform:translateX(120%);opacity:1}
   .view-tag{font-size:12px;padding:5px 11px}
   main{padding:13px}
   .card{padding:16px;border-radius:18px}
-  .hero h1{font-size:29px}
-  .hero{padding:20px 14px}
+  .hero h1{font-size:26px}
+  .hero{padding:16px 14px 18px}
   .grid-stats{grid-template-columns:1fr 1fr;gap:11px}
   .stat{min-height:106px;padding:15px 16px}
   .stat p{font-size:21px;letter-spacing:-.5px}
-  .stat[style*="font-size:13px"] p{font-size:15px;padding-top:4px}
+  .stat p.stat-name{font-size:18px;line-height:1.3}
   .tb{padding:18px}
   .tb-num{font-size:31px}
   .pef-grid{grid-template-columns:1fr 1fr}
