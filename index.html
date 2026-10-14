@@ -207,13 +207,17 @@
                   <div class="fld"><label>Marca</label><input type="text" id="inv-em"></div>
                   <div class="fld"><label>Categoría</label><input type="text" id="inv-ec"></div>
                 </div>
-                <div class="fld"><label>Unidad</label><select id="inv-unit"><option value="u">Por unidad</option><option value="kg">Por kg</option></select></div>
+                <div class="pef-grid">
+                  <div class="fld"><label>Unidad</label><select id="inv-unit"><option value="u">Por unidad</option><option value="kg">Por kg</option></select></div>
+                  <div class="fld"><label>Stock</label><input type="text" id="inv-es" inputmode="decimal"></div>
+                </div>
                 <div class="pef-grid">
                   <div class="fld"><label>Precio venta</label><input type="text" id="inv-ep" inputmode="decimal"></div>
                   <div class="fld"><label>Precio compra</label><input type="text" id="inv-ebp" inputmode="decimal"></div>
                 </div>
-                <div class="fld"><label>Stock</label><input type="text" id="inv-es" inputmode="decimal"></div>
                 <div class="muted" id="inv-val"></div>
+              </div>
+              <div class="save-bar">
                 <button type="submit" class="btn primary"><span class="ic">save</span> Guardar Cambios</button>
               </div>
             </form>
@@ -347,13 +351,17 @@
         <div class="fld"><label>Marca</label><input type="text" id="inv-m" placeholder="Ej: Coca-Cola"></div>
         <div class="fld"><label>Categoría</label><input type="text" id="inv-c" placeholder="Ej: Bebidas"></div>
       </div>
-      <div class="fld"><label>Unidad</label><select id="inv-u"><option value="u">Por unidad</option><option value="kg">Por kg</option></select></div>
+      <div class="pef-grid">
+        <div class="fld"><label>Unidad</label><select id="inv-u"><option value="u">Por unidad</option><option value="kg">Por kg</option></select></div>
+        <div class="fld"><label>Stock</label><input type="text" id="inv-s" inputmode="decimal" value="0"></div>
+      </div>
       <div class="pef-grid">
         <div class="fld"><label>Precio venta</label><input type="text" id="inv-p" inputmode="decimal" placeholder="0,00"></div>
         <div class="fld"><label>Precio compra</label><input type="text" id="inv-bp" inputmode="decimal" value="0"></div>
       </div>
-      <div class="fld"><label>Stock</label><input type="text" id="inv-s" inputmode="decimal" value="0"></div>
-      <button type="submit" class="btn solid" style="min-height:60px;font-size:18px"><span class="ic">add</span> Agregar Producto</button>
+      <div class="save-bar">
+        <button type="submit" class="btn solid"><span class="ic">add</span> Agregar Producto</button>
+      </div>
     </form>
     <button class="btn ghost" onclick="KP_UI.hideOv('new-product-ov')">Cancelar</button>
   </div>

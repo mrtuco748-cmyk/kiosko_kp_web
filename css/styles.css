@@ -338,8 +338,9 @@ aside{
    el JS los marca activos solo al cambiar de vista. En desktop no existe. */
 #tabbar{display:none}
 
-/* Barra fija del carrito: solo celular. Con 300+ productos en el catalogo el
-   carrito queda muy abajo del scroll; esto deja cobrar sin volver arriba.
+/* Barra de carrito: SOLO hasta 1180px (ver el media query). En desktop el
+   carrito ya esta en el riel lateral y la barra flotante le tapaba el
+   checkbox de descargar ticket, asi que acá va display:none.
    `renderCobrar()` le pone .show cuando hay algo en el carrito. */
 .cart-bar{
   display:none;position:fixed;left:0;right:0;z-index:124;
@@ -352,7 +353,6 @@ aside{
   border-top:1px solid var(--line2);
   box-shadow:0 -14px 40px rgba(0,0,0,.55);
 }
-.cart-bar.show{display:flex;animation:cartUp .42s var(--ease)}
 .cart-bar-info{
   flex:1;min-width:0;justify-content:flex-start;gap:10px;flex-wrap:wrap;
   padding:0 4px;background:transparent;border:none;box-shadow:none;
@@ -655,6 +655,21 @@ main::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.24);background-
 .pef{display:flex;flex-direction:column;gap:14px}
 .pef-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 
+/* Barra de guardar: el boton queda fijo al pie del panel que scrollea, asi
+   siempre se llega. Antes, en pantallas bajas, "Guardar Cambios" caia bajo
+   el borde (o debajo de la barra de navegacion) y no se podia apretar. */
+.save-bar{
+  position:sticky;z-index:5;bottom:0;
+  display:flex;gap:12px;align-items:center;
+  margin:6px -22px -22px;
+  padding:14px 22px;
+  background:rgba(13,28,19,.97);
+  -webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);
+  border-top:1px solid var(--line2);
+  border-radius:0 0 var(--r) var(--r);
+}
+.save-bar .btn{flex:1;min-height:58px;font-size:17px;font-weight:750}
+
 /* ---------- 13. COBRAR (carrito + catalogo) ---------- */
 .scat{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px}
 .si{
@@ -843,6 +858,12 @@ main::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.24);background-
   box-shadow:var(--el-3),inset 0 1px 0 rgba(255,255,255,.14);
 }
 .ov h2{font-size:22px;font-weight:800;text-align:center;letter-spacing:-.4px}
+/* Dentro de un modal la barra flota (el modal tiene su propio padding). */
+.ov .save-bar{
+  margin:6px 0 0;padding:14px 18px;
+  border:1px solid var(--line2);border-radius:var(--r);
+  box-shadow:var(--el-2);
+}
 .ov h2 .ic{vertical-align:-4px}
 .ov p{font-size:15px;color:var(--txl);text-align:center;line-height:1.55}
 .tp{
@@ -988,6 +1009,35 @@ button.btn:hover::after{transform:translateX(120%);opacity:1}
   .split{grid-template-columns:340px 1fr}
   .grid-stats{grid-template-columns:repeat(auto-fill,minmax(200px,1fr))}
   .stat p{font-size:26px}
+  /* El sidebar achica en tablet para darle aire al contenido. El riel del
+     carrito NO: entre 901 y 1180 px no es viable, asi que Cobrar pasa a
+     columna unica con barra de carrito. Ese override lleva su propio
+     selector porque `#view-cobrar .split` tiene un ID y le gana al
+     `.split` de arriba. */
+  aside{width:230px}
+  /* Entre 901 y 1180 px el riel del carrito no es viable: para que el
+     catalogo tenga 2 columnas el carrito se comia el ancho y el catalogo
+     quedaba en una sola tira angosta. En esa franja Cobrar va a columna
+     unica (catalogo completo) y aparece la barra fija de carrito, igual
+     que en celular, para no perder el cobro a mano. El POS de dos columnas
+     arranca recien por arriba de 1180, donde hay lugar de verdad. */
+  #view-cobrar .split{grid-template-columns:1fr}
+  /* Tarjetas un poco mas angostas que en desktop para que entren mas por
+     fila en tablet. */
+  .scat{grid-template-columns:repeat(auto-fill,minmax(165px,1fr))}
+  .cart-bar.show{
+    display:flex;position:fixed;z-index:124;
+    left:248px;right:18px;bottom:18px;
+    align-items:center;gap:12px;padding:12px 14px;
+    background:rgba(8,18,12,.95);
+    -webkit-backdrop-filter:blur(22px) saturate(150%);
+    backdrop-filter:blur(22px) saturate(150%);
+    border:1px solid var(--line2);border-radius:var(--r);
+    box-shadow:var(--el-3);
+    animation:cartUp .42s var(--ease);
+  }
+  .cart-bar .btn{min-height:54px}
+  body.cart-bar-open main{padding-bottom:120px}
 }
 
 /* Celular: sidebar como cajon deslizante + barra inferior fija */
@@ -1022,6 +1072,11 @@ button.btn:hover::after{transform:translateX(120%);opacity:1}
   main{padding:18px 18px calc(96px + env(safe-area-inset-bottom))}
   body.cart-bar-open main{padding-bottom:calc(180px + env(safe-area-inset-bottom))}
   .split{grid-template-columns:1fr}
+  /* Cobrar vuelve a una sola columna. Sin esto el riel fijo de 430px del
+     carrito se comia todo el ancho en un celular y dejaba el catalogo de
+     productos aplastado contra el borde izquierdo (y desborde a la derecha).
+     Mismo motivo que el override de 1180px: el ID gana la especificidad. */
+  #view-cobrar .split{grid-template-columns:1fr}
   /* En celular las vistas partidas van en una sola columna: dejan de repartir
      el alto y scrollea todo el `main` de una, sin paneles anidados. */
   #view-fiados,#view-inventario,#view-cobrar{height:auto;min-height:0}
@@ -1052,6 +1107,21 @@ button.btn:hover::after{transform:translateX(120%);opacity:1}
   #toasts{top:auto;bottom:calc(90px + env(safe-area-inset-bottom));right:14px;left:14px;max-width:none}
   .toast{animation:toastUp .45s var(--ease)}
   .clist,.ml,.cart-items{max-height:none}
+  /* La barra de guardar flota por encima de la barra de navegacion; si
+     quedara pegada abajo, el tabbar la taparia y no se podria apretar. */
+  .save-bar{
+    bottom:calc(78px + env(safe-area-inset-bottom));
+    margin:8px 0 0;padding:12px 14px;
+    border:1px solid var(--line2);border-radius:var(--r);
+    box-shadow:var(--el-2);
+  }
+  /* La barra de carrito ocupa todo el ancho y se apoya sobre el tabbar.
+     Necesita su propia regla: la de tablet (deja:248px) la ganaria si no. */
+  .cart-bar.show{
+    left:0;right:0;
+    bottom:calc(74px + env(safe-area-inset-bottom));
+    padding:12px 14px;border-radius:0;border-width:1px 0 0;
+  }
 
   /* --- Barra inferior --- */
   #tabbar{
@@ -1115,6 +1185,9 @@ button.btn:hover::after{transform:translateX(120%);opacity:1}
   .ac-drop{min-width:0;max-width:calc(100vw - 30px)}
   .ov{padding:12px}
   .ov>div{padding:20px;border-radius:22px}
+  .ov .save-bar{padding:12px 14px}
+  .card{padding:16px}
+  .save-bar{margin:6px -16px -16px;padding:12px 16px}
   .ov h2{font-size:19px}
   .pmtgl button{min-height:64px;font-size:12.5px}
   .cdh-actions{gap:7px}
