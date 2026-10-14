@@ -31,7 +31,7 @@
     soundOn = !soundOn;
     try { localStorage.setItem("kp_sound", soundOn ? "1" : "0"); } catch (e) {}
     var b = $("soundBtn");
-    if (b) b.innerHTML = '<span class="ic sm">' + (soundOn ? "volume_up" : "volume_off") + "</span>";
+    if (b) b.innerHTML = '<span class="ic">' + (soundOn ? "volume_up" : "volume_off") + "</span>";
   }
   function toast(msg, type) {
     var ct = $("toasts");
@@ -150,12 +150,30 @@
   function render() {
     renderBadge(); renderNet();
     var v = D().currentView;
+    updateCartBar();
     if (v === "inicio") renderHome();
     else if (v === "fiados") renderFiados();
     else if (v === "inventario") renderInventario();
     else if (v === "cobrar") renderCobrar();
     else if (v === "gastos") renderGastos();
     else if (v === "historial") renderHistorial();
+  }
+  // Barra fija de carrito (solo se ve en celular, la declara el CSS).
+  // Con el catalogo de 300+ productos el carrito queda muy abajo del scroll,
+  // asi que esta barra deja ver el total y cobrar sin volver arriba.
+  // La muestran `render()` y `renderCobrar()` (esta ultima se llama directo
+  // al agregar/quitar items, sin pasar por render()).
+  function updateCartBar() {
+    var bar = $("cartBar");
+    if (!bar) return;
+    var on = D().currentView === "cobrar" && D().cart.length > 0;
+    bar.classList.toggle("show", on);
+    // El body lo necesita para reservar el espacio extra que ocupa la barra.
+    document.body.classList.toggle("cart-bar-open", on);
+    if (!on) return;
+    var n = D().cart.length;
+    $("cartBarCount").textContent = n === 1 ? "1 artículo" : n + " artículos";
+    $("cartBarTotal").textContent = F.fmtCurrency(s().cartTotal());
   }
   function renderBadge() {
     var n = 0;
@@ -1256,6 +1274,7 @@
     $("cart-empty").style.display = D().cart.length ? "none" : "";
     $("cart-total").textContent = F.fmtCurrency(s().cartTotal());
     $("cart-obtained").textContent = F.fmtCurrency(s().cartObtained());
+    updateCartBar();
     var dl = "";
     D().customers.forEach(function (c) { dl += '<option value="' + F.esc(c.name) + '">'; });
     $("sale-client-options").innerHTML = dl;
@@ -1520,7 +1539,7 @@
       try { var pa = new Audio("sounds/" + SOUND_FILES[si] + ".mp3"); pa.preload = "auto"; soundCache[SOUND_FILES[si]] = pa; } catch (e) {}
     }
     var sb = document.getElementById("soundBtn");
-    if (sb) sb.innerHTML = '<span class="ic sm">' + (soundOn ? "volume_up" : "volume_off") + "</span>";
+    if (sb) sb.innerHTML = '<span class="ic">' + (soundOn ? "volume_up" : "volume_off") + "</span>";
     var btns = document.querySelectorAll(".sb-btn");
     for (var i = 0; i < btns.length; i++) btns[i].classList.toggle("active", btns[i].getAttribute("data-view") === D().currentView);
     var views = document.querySelectorAll(".view");

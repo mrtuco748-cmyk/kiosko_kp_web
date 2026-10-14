@@ -82,13 +82,29 @@ Incluye heurística para desambiguar `"12.500"` (milares) vs `"12.5"` (decimal).
 - **Routing por hash** (`#/fiados`, `#/inventario`, `#/cobrar`): URLs
   compartibles, botones atrás/adelante del navegador funcionan, y en celular
   el botón "atrás" cierra modales y detalles antes de salir de la vista
+- **Todo grande y cómodo para el dedo**: 52 px de alto mínimo en botones,
+  inputs de 54-58 px y tipografía base de 16-17 px. Se usa de pie, con las
+  manos ocupadas, en un mostrador
+- **Barra inferior fija en celular** con las 6 secciones: no hay que abrir el
+  menú para cambiar de vista. Usa los mismos `.sb-btn` que el sidebar, así
+  que `switchView()` los marca activos sin código extra
+- **Barra fija de carrito en celular** (`#cartBar`): con 300+ productos el
+  carrito queda muy abajo del scroll, así que la barra mantiene el total a la
+  vista y deja cobrar sin volver arriba. `updateCartBar()` (en `app.js`) la
+  muestra solo en la vista Cobrar y solo si hay algo en el carrito
+- **Cobrar es un punto de venta, no un formulario**: el catálogo ocupa el
+  ancho y el carrito es un riel fijo a la derecha
 - **Autocompletado** de clientes y productos por nombre, con prellenado de precio
 - **Feedback sonoro** en momentos clave (fiar, abono, cuenta saldada, borrar
-  fiado, venta, gasto) con mute persistente
+  fiado, venta, gasto) con mute persistente. El sonido de cobro es un
+  "ka-ching" tipo caja registradora sintetizado por
+  `tool/gen_sound_venta.js` (sin licencias)
 - **Toasts** para confirmar cada acción
 - **Exportar / importar** datos en formato texto compatible 100% con la app
   móvil, e importación de tickets de venta
-- Responsive, pensado para usar desde el celular en el mostrador
+- Motion y profundidad: fondo con luz derivada, tarjetas de vidrio con
+  entrada en cascada, brillo que cruza los botones al pasar el mouse y
+  respecta `prefers-reduced-motion`
 
 ### Arquitectura
 
@@ -129,11 +145,21 @@ Es un sitio estático, no necesita build.
 
 ```bash
 # Con cualquier servidor local
-npx serve .
+npx serve .     # anda perfecto
 ```
 
 O directamente abrí `index.html` en el navegador para probar la interfaz
 (la sincronización con Supabase requiere el archivo servido por HTTP).
+
+### Regenerar el sonido de cobro
+
+`sounds/venta.mp3` es un "ka-ching" sintetizado (sin licencias ni descargas).
+El script que lo genera vive en el proyecto hermano de Flutter, en
+`Kiosko-kp/tool/gen_sound_venta.js` (este repo es solo la web):
+
+```bash
+node ../tool/gen_sound_venta.js   # reescribe sounds/venta.mp3 (necesita ffmpeg)
+```
 
 ### Deploy
 
