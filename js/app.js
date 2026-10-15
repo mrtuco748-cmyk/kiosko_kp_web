@@ -1282,7 +1282,7 @@
       var qtyCtl = it.unit === "kg"
         ? '<span>' + F.fmtQtyShort(it.quantity) + ' kg</span><button onclick="KP_UI.editCartWeight(' + i + ')"><span class="ic sm">edit</span></button>'
         : '<button onclick="KP_UI.cartQty(' + i + ",-1)\"><span class=\"ic sm\">remove</span></button><span>" + Math.round(it.quantity) + "</span><button onclick=\"KP_UI.cartQty(" + i + ",1)\"><span class=\"ic sm\">add</span></button>";
-      ch += '<div class="ci-cart"><span class="cc-name">' + F.esc(it.name) + '</span><span class="cc-qty">' + qtyCtl + '</span><span class="cc-sub">' + F.fmtCurrency(sub) + '</span><button class="cc-del" onclick="KP_UI.cartDel(' + i + ')"><span class="ic sm">close</span></button></div>';
+      ch += '<div class="ci-cart"><span class="cc-name" title="' + F.esc(it.name) + '">' + F.esc(it.name) + '</span><span class="cc-qty">' + qtyCtl + '</span><span class="cc-sub">' + F.fmtCurrency(sub) + '</span><button class="cc-del" title="Quitar del carrito" onclick="KP_UI.cartDel(' + i + ')"><span class="ic sm">close</span></button></div>';
     });
     $("cart-items").innerHTML = ch;
     $("cart-empty").style.display = D().cart.length ? "none" : "";

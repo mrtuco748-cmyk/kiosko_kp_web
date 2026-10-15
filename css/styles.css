@@ -709,22 +709,40 @@ main::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.24);background-
 .cart-items{display:flex;flex-direction:column;gap:10px;scrollbar-width:thin}
 .cart-items::-webkit-scrollbar{width:8px}
 .cart-items::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:var(--rp)}
+/* Cada linea del carrito ocupa dos renglones: el producto arriba y los
+   controles abajo. En una sola fila no entraba ni el nombre ni los botones
+   con el subtotal, y la X terminaba empujada FUERA de la tarjeta (visible
+   en 390px y tambien en el riel de 430px del escritorio). */
 .ci-cart{
-  display:flex;align-items:center;gap:14px;
-  padding:12px 14px;border-radius:var(--rs);
+  display:flex;flex-wrap:wrap;align-items:center;
+  gap:10px;padding:12px 14px;border-radius:var(--rs);
   background:rgba(0,0,0,.24);border:1px solid var(--line);
   font-size:16px;
   animation:popIn .35s var(--ease);
 }
-.cc-name{flex:1;font-weight:650;min-width:80px}
-.cc-qty{display:flex;align-items:center;gap:6px;font-weight:750}
+.cc-name{
+  flex:1 0 100%;min-width:0;font-weight:650;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.cc-qty{display:flex;align-items:center;gap:6px;font-weight:750;order:2;flex-shrink:0}
 .cc-qty button{
-  min-width:38px;min-height:38px;padding:0;border-radius:11px;
+  min-width:42px;min-height:42px;padding:0;border-radius:11px;
   background:rgba(255,255,255,.08);border-color:var(--line);box-shadow:none;
 }
 .cc-qty button:hover{background:rgba(255,255,255,.16);transform:scale(1.08)}
 .cc-qty span{min-width:30px;text-align:center}
-.cc-sub{font-weight:800;color:var(--pr);min-width:100px;text-align:right;font-size:17px;white-space:nowrap}
+.cc-sub{
+  order:3;flex:1 1 auto;min-width:0;
+  font-weight:800;color:var(--pr);text-align:right;
+  font-size:18px;white-space:nowrap;letter-spacing:-.4px;
+}
+.cc-del{
+  order:4;flex-shrink:0;
+  background:none;box-shadow:none;border-color:transparent;
+  color:var(--txd);min-width:42px;min-height:42px;padding:0;border-radius:11px;
+}
+.cc-del:hover{color:var(--dg);background:rgba(225,29,72,.16);transform:scale(1.1)}
+.cc-del .ic{font-size:22px}
 
 .pmtgl{display:flex;gap:10px;flex:1}
 .pmtgl button{
@@ -1034,6 +1052,10 @@ button.btn:hover::after{transform:translateX(120%);opacity:1}
      que en celular, para no perder el cobro a mano. El POS de dos columnas
      arranca recien por arriba de 1180, donde hay lugar de verdad. */
   #view-cobrar .split{grid-template-columns:1fr}
+  /* Con el catalogo de 300+ productos, dejar el carrito ABAJO obligaba a
+     bajar todo el listado para ver el total o corregir una cantidad. En
+     columna unica el carrito va primero y el catalogo despues. */
+  #view-cobrar .split-right{order:-1}
   /* Tarjetas un poco mas angostas que en desktop para que entren mas por
      fila en tablet. */
   .scat{grid-template-columns:repeat(auto-fill,minmax(165px,1fr))}
