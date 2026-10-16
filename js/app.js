@@ -1269,10 +1269,10 @@
     var html = "";
     list.forEach(function (p) {
       html += '<div class="si" onclick="KP_UI.addToCart(\'' + p.id + "')\">" +
-        "<h5>" + F.esc(p.name) + "</h5>" +
-        (p.brand ? '<div class="si-brand">' + F.esc(p.brand) + "</div>" : "") +
-        '<div class="si-price">' + F.fmtCurrency(p.price) + (p.unit === "kg" ? "<small>/kg</small>" : "") + "</div>" +
-        '<div class="si-stock">' + F.esc(F.fmtQty(p.stock, p.unit)) + "</div></div>";
+        '<div class="si-info"><h5>' + F.esc(p.name) + '</h5>' +
+        (p.brand ? '<div class="si-brand">' + F.esc(p.brand) + '</div>' : '') + '</div>' +
+        '<div class="si-right"><div class="si-price">' + F.fmtCurrency(p.price) + (p.unit === "kg" ? "<small>/kg</small>" : "") + '</div>' +
+        '<div class="si-stock">' + F.esc(F.fmtQty(p.stock, p.unit)) + '</div></div></div>';
     });
     $("sale-catalog").innerHTML = html || '<p class="muted">Sin productos.</p>';
     // carrito
