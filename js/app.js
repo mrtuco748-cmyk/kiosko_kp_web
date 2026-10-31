@@ -559,7 +559,7 @@
     if (box) box.classList.remove("open");
   }
   function acFiadoInput() { autoFillPrice(); acRender("fiado"); }
-  function acCobrarInput() { s().emit(); acRender("cobrar"); }
+  function acCobrarInput() { renderCobrar(); }
   function acKey(kind, ev) {
     if (ev.key === "Escape") { acHide(kind); return; }
     if (ev.key === "Enter") {

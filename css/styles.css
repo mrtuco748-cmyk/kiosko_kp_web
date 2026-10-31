@@ -683,7 +683,13 @@ main::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.24);background-
 .save-bar .btn{flex:1;min-height:58px;font-size:17px;font-weight:750}
 
 /* ---------- 13. COBRAR (carrito + catalogo) ---------- */
-.scat{display:flex;flex-direction:column;gap:8px}
+.scat{
+  display:flex;flex-direction:column;gap:8px;
+  max-height:55vh;min-height:300px;overflow-y:auto;
+  padding-right:6px;scrollbar-width:thin;
+}
+.scat::-webkit-scrollbar{width:8px}
+.scat::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:var(--rp)}
 .si{
   position:relative;overflow:hidden;
   display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:12px;
@@ -1060,7 +1066,6 @@ button.btn:hover::after{transform:translateX(120%);opacity:1}
   #view-cobrar .split-right{order:-1}
   /* Tarjetas un poco mas angostas que en desktop para que entren mas por
      fila en tablet. */
-  .scat{grid-template-columns:repeat(auto-fill,minmax(165px,1fr))}
   .cart-bar.show{
     display:flex;position:fixed;z-index:124;
     left:248px;right:18px;bottom:18px;
