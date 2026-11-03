@@ -294,12 +294,15 @@
   }
 
   function push() {
-    var withUnit = false, withCycles = false;
+    var withUnit = false, withCycles = false, withUpdated = false;
     return db().probe("products", "unit").then(function (u) {
       withUnit = !!u;
       return db().probe("debt_cycles", "id");
     }).then(function (cy) {
       withCycles = !!cy;
+      return db().probe("products", "updated_at");
+    }).then(function (up) {
+      withUpdated = !!up;
       var pc = S.pending.customers.map(function (id) { return getCustomer(id); }).filter(Boolean);
       var pp = S.pending.products.map(function (id) { return getProduct(id); }).filter(Boolean);
       var ps = S.pending.sales.map(function (id) {
@@ -311,14 +314,27 @@
         return null;
       }).filter(Boolean);
 
-      var custRows = pc.map(function (c) { return { id: c.id, name: c.name, limit_value: c.limit, interest_days: c.interestDays, interest_rate: c.interestRate }; });
+      var custRows = pc.map(function (c) {
+        var r = { id: c.id, name: c.name, limit_value: c.limit, interest_days: c.interestDays, interest_rate: c.interestRate };
+        if (withUpdated && c.updatedAt) r.updated_at = new Date(c.updatedAt).toISOString();
+        return r;
+      });
       var prodRows = pp.map(function (p) {
         var r = { id: p.id, name: p.name, brand: p.brand || "", category: p.category || "", price: p.price, buy_price: p.buyPrice || 0, stock: withUnit ? p.stock : Math.round(p.stock) };
         if (withUnit) r.unit = p.unit;
+        if (withUpdated && p.updatedAt) r.updated_at = new Date(p.updatedAt).toISOString();
         return r;
       });
-      var saleRows = ps.map(function (s) { return { id: s.id, total: s.total, method: s.method, client_name: s.clientName || "", date: new Date(s.date).toISOString() }; });
-      var expRows = pe.map(function (e) { return { id: e.id, description: e.description, amount: e.amount, date: new Date(e.date).toISOString() }; });
+      var saleRows = ps.map(function (s) {
+        var r = { id: s.id, total: s.total, method: s.method, client_name: s.clientName || "", date: new Date(s.date).toISOString() };
+        if (withUpdated && s.updatedAt) r.updated_at = new Date(s.updatedAt).toISOString();
+        return r;
+      });
+      var expRows = pe.map(function (e) {
+        var r = { id: e.id, description: e.description, amount: e.amount, date: new Date(e.date).toISOString() };
+        if (withUpdated && e.updatedAt) r.updated_at = new Date(e.updatedAt).toISOString();
+        return r;
+      });
 
       return db().upsert("customers", custRows)
         .then(function () { return db().upsert("products", prodRows); })
@@ -428,8 +444,8 @@
     };
   }
   // Los movimientos/ciclos pendientes viajan dentro de sus customers.
-  // Si el id ya vino en el pull, el pendiente local GANA (se reemplaza;
-  // el historial se une por id como en Flutter).
+  // Si el id ya vino en el pull, se respeta LWW: si el remoto es más nuevo,
+  // el remoto se queda; de lo contrario el local reemplaza.
   function reattach(snap) {
     var i, j, k, found;
     for (i = 0; i < snap.customers.length; i++) {
@@ -438,13 +454,26 @@
       var seen = {}, merged = [];
       ((cur.history || []).concat(sc.history || [])).forEach(function (h) { if (!seen[h.id]) { seen[h.id] = 1; merged.push(h); } });
       merged.sort(function (a, b) { return new Date(b.closedAt) - new Date(a.closedAt); });
-      sc.history = merged;
-      for (k = 0; k < S.customers.length; k++) if (S.customers[k].id === sc.id) S.customers[k] = sc;
+      var curIsNewer = cur.updatedAt && sc.updatedAt && new Date(cur.updatedAt) > new Date(sc.updatedAt);
+      if (!curIsNewer) {
+        sc.history = merged;
+        for (k = 0; k < S.customers.length; k++) if (S.customers[k].id === sc.id) S.customers[k] = sc;
+      } else {
+        cur.history = merged;
+      }
     }
     for (i = 0; i < snap.products.length; i++) {
       found = -1;
       for (j = 0; j < S.inventory.length; j++) if (S.inventory[j].id === snap.products[i].id) found = j;
-      if (found < 0) S.inventory.push(snap.products[i]); else S.inventory[found] = snap.products[i];
+      if (found < 0) {
+        S.inventory.push(snap.products[i]);
+      } else {
+        var curProd = S.inventory[found];
+        var curProdIsNewer = curProd.updatedAt && snap.products[i].updatedAt && new Date(curProd.updatedAt) > new Date(snap.products[i].updatedAt);
+        if (!curProdIsNewer) {
+          S.inventory[found] = snap.products[i];
+        }
+      }
     }
     for (i = 0; i < snap.sales.length; i++) {
       found = -1;
