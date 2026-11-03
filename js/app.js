@@ -545,9 +545,9 @@
     }
     var html = "";
     ms.forEach(function (p) {
-      var sub = F.esc(p.brand || p.category || "") + " · " + F.esc(F.fmtQty(p.stock, p.unit));
+      var sub = F.esc(p.brand || p.category || "") + " · Stock: " + F.esc(F.fmtQty(p.stock, p.unit));
       html += '<div class="ac-item" onmousedown="KP_UI.acPick(\'' + kind + "','" + p.id + "');return false\">" +
-        "<span>" + F.esc(p.name) + '<br><span class="ac-sub">' + sub + "</span></span>" +
+        '<span style="min-width:0;flex:1"><div class="ac-title">' + F.esc(p.name) + '</div><div class="ac-sub">' + sub + "</div></span>" +
         '<span class="ac-price">' + F.fmtCurrency(p.price) + (p.unit === "kg" ? "<small>/kg</small>" : "") + "</span></div>";
     });
     box.innerHTML = html;
