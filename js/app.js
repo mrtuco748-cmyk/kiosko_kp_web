@@ -1209,10 +1209,17 @@
     return list;
   }
 
+  function getPageCapacity(layout) {
+    if (layout === "3col") return 165; // 3 tablas x 55 filas
+    if (layout === "1col") return 55;  // 1 tabla ancha x 55 filas
+    return 110;                        // 2col: 2 tablas x 55 filas
+  }
+
   function updateLabelsSummary() {
     var prods = getSelectedLabelsProducts();
-    var layout = parseInt($("lbl-layout") ? $("lbl-layout").value : "8", 10) || 8;
-    var sheets = Math.ceil(prods.length / layout);
+    var layout = $("lbl-layout") ? $("lbl-layout").value : "2col";
+    var perPage = getPageCapacity(layout);
+    var sheets = Math.ceil(prods.length / perPage);
 
     if ($("lbl-count")) $("lbl-count").textContent = prods.length + " producto" + (prods.length === 1 ? "" : "s");
     if ($("lbl-sheets")) $("lbl-sheets").textContent = sheets + " hoja" + (sheets === 1 ? "" : "s") + " (A4)";
@@ -1234,213 +1241,169 @@
     canvas.height = H;
     var ctx = canvas.getContext("2d");
 
-    // Fondo blanco nítido para impresión
+    // Fondo blanco nítido para impresión (ahorro total de tinta)
     ctx.fillStyle = "#FFFFFF";
     ctx.fillRect(0, 0, W, H);
 
-    var cols = 4, rows = 8;
-    if (layoutType === 32) { cols = 4; rows = 8; }
-    else if (layoutType === 24) { cols = 4; rows = 6; }
-    else if (layoutType === 16) { cols = 4; rows = 4; }
-    else if (layoutType === 8) { cols = 2; rows = 4; }
-    else if (layoutType === 4) { cols = 2; rows = 2; }
-    else { cols = 4; rows = 8; }
-
     var marginX = 80;
-    var marginY = 90;
-    var footerH = 60;
-    var gridW = W - marginX * 2;
-    var gridH = H - marginY * 2 - footerH;
+    var headerTop = 60;
+    var tableTop = 150;
+    var bottomMargin = 80;
+    var availableH = H - tableTop - bottomMargin;
 
-    var cellW = gridW / cols;
-    var cellH = gridH / rows;
+    var numColumns = (layoutType === "3col" ? 3 : (layoutType === "1col" ? 1 : 2));
+    var rowsPerCol = 55;
+    var rowH = availableH / rowsPerCol; // ~59.5 px por fila (súper legible a 300 DPI)
 
-    // Encabezado / Pie de hoja sutil para control de impresión
-    ctx.fillStyle = "#888888";
-    ctx.font = "500 26px sans-serif";
+    var colGap = (numColumns > 1 ? 30 : 0);
+    var tableColW = (W - marginX * 2 - colGap * (numColumns - 1)) / numColumns;
+
+    // Encabezado de página formal tipo Excel / planilla
+    ctx.fillStyle = "#166534";
+    ctx.fillRect(marginX, headerTop, W - marginX * 2, 54);
+
+    ctx.fillStyle = "#FFFFFF";
+    ctx.font = "800 28px sans-serif";
     ctx.textAlign = "left";
-    ctx.fillText("MaxiKiosko KP · Lista de Precios", marginX, 55);
+    ctx.textBaseline = "middle";
+    ctx.fillText("MAXIKIOSKO KP · LISTA DE PRECIOS", marginX + 24, headerTop + 27);
+
+    ctx.font = "600 22px sans-serif";
     ctx.textAlign = "right";
-    ctx.fillText("Hoja " + pageIndex + " de " + totalPages + "  ·  " + new Date().toLocaleDateString("es-AR"), W - marginX, 55);
+    ctx.fillText("Hoja " + pageIndex + " de " + totalPages + "  ·  " + new Date().toLocaleDateString("es-AR"), W - marginX - 24, headerTop + 27);
 
-    // Dibuja cada cartel
-    for (var i = 0; i < items.length; i++) {
-      var p = items[i];
-      var c = i % cols;
-      var r = Math.floor(i / cols);
-      var x = marginX + c * cellW;
-      var y = marginY + r * cellH;
+    // Dibuja cada sub-tabla (columna de Excel)
+    for (var c = 0; c < numColumns; c++) {
+      var colX = marginX + c * (tableColW + colGap);
+      var colStart = c * rowsPerCol;
+      var colEnd = Math.min(colStart + rowsPerCol, items.length);
+      var colItems = (colStart < items.length ? items.slice(colStart, colEnd) : []);
 
-      drawSingleLabel(ctx, p, x, y, cellW, cellH, layoutType);
+      drawExcelTableColumn(ctx, colItems, colX, tableTop, tableColW, rowH, rowsPerCol, layoutType);
     }
 
-    // Líneas guía de corte punteadas exteriores e interiores
-    ctx.strokeStyle = "#D1D5DB";
-    ctx.lineWidth = 1.5;
-    ctx.setLineDash([8, 8]);
-
-    for (var ci = 0; ci <= cols; ci++) {
-      var lx = marginX + ci * cellW;
-      ctx.beginPath();
-      ctx.moveTo(lx, marginY);
-      ctx.lineTo(lx, marginY + gridH);
-      ctx.stroke();
-    }
-    for (var ri = 0; ri <= rows; ri++) {
-      var ly = marginY + ri * cellH;
-      ctx.beginPath();
-      ctx.moveTo(marginX, ly);
-      ctx.lineTo(marginX + gridW, ly);
-      ctx.stroke();
-    }
-    ctx.setLineDash([]); // Reset line dash
+    // Pie de página sutil
+    ctx.fillStyle = "#6B7280";
+    ctx.font = "500 20px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("Precios sujetos a cambio sin previo aviso · Kiosko KP", W / 2, H - 35);
 
     return canvas;
   }
 
-  function drawSingleLabel(ctx, p, x, y, w, h, layoutType) {
-    var pad = (layoutType >= 24 ? 10 : (layoutType >= 16 ? 14 : 20));
-    var innerX = x + pad;
-    var innerY = y + pad;
-    var innerW = w - pad * 2;
-    var innerH = h - pad * 2;
+  function drawExcelTableColumn(ctx, items, x, y, width, rowH, maxRows, layoutType) {
+    // Encabezado de tabla Excel
+    var thH = rowH * 0.95;
+    ctx.fillStyle = "#E2E8F0";
+    ctx.fillRect(x, y, width, thH);
 
-    var isCompact = (layoutType >= 16);
-    var isUltra = (layoutType >= 24);
+    ctx.strokeStyle = "#94A3B8";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x, y, width, thH);
 
-    // Marco exterior con esquinas redondeadas
-    var radius = (isUltra ? 6 : (isCompact ? 10 : 16));
-    ctx.strokeStyle = "#1A3322";
-    ctx.lineWidth = (isUltra ? 2 : 3);
-    ctx.beginPath();
-    ctx.roundRect(innerX, innerY, innerW, innerH, radius);
-    ctx.stroke();
+    ctx.fillStyle = "#1E293B";
+    ctx.font = "700 20px sans-serif";
+    ctx.textBaseline = "middle";
 
-    // Franja o insignia superior
-    var headerH = (isUltra ? 30 : (isCompact ? 36 : 48));
-    ctx.fillStyle = "#166534";
-    ctx.beginPath();
-    ctx.roundRect(innerX, innerY, innerW, headerH, [radius, radius, 0, 0]);
-    ctx.fill();
+    var priceColW = (layoutType === "3col" ? 180 : (layoutType === "1col" ? 260 : 210));
+    var catColW = (layoutType === "1col" ? 280 : 0);
+    var stockColW = (layoutType === "1col" ? 180 : 0);
+    var nameColW = width - priceColW - catColW - stockColW;
 
-    // Texto del encabezado
-    ctx.fillStyle = "#FFFFFF";
-    ctx.font = "800 " + (isUltra ? 14 : (isCompact ? 17 : 22)) + "px sans-serif";
+    // Títulos de columnas
     ctx.textAlign = "left";
-    ctx.textBaseline = "middle";
-    ctx.fillText("MAXIKIOSKO KP", innerX + (isUltra ? 8 : 14), innerY + headerH / 2);
+    ctx.fillText("PRODUCTO / ARTÍCULO", x + 16, y + thH / 2);
 
-    if (p.category) {
-      ctx.textAlign = "right";
-      ctx.font = "700 " + (isUltra ? 13 : (isCompact ? 15 : 18)) + "px sans-serif";
-      ctx.fillStyle = "#BBF7D0";
-      var catStr = p.category.toUpperCase();
-      var maxCatLen = (isUltra ? 14 : (isCompact ? 18 : 24));
-      if (catStr.length > maxCatLen) catStr = catStr.substring(0, maxCatLen - 2) + "..";
-      ctx.fillText(catStr, innerX + innerW - (isUltra ? 8 : 14), innerY + headerH / 2);
-    }
-
-    // Marca si existe
-    var curY = innerY + headerH + (isUltra ? 14 : (isCompact ? 18 : 24));
-    if (p.brand) {
-      ctx.fillStyle = "#4B5563";
-      var brandSize = (isUltra ? 15 : (isCompact ? 19 : 28));
-      ctx.font = "700 " + brandSize + "px sans-serif";
+    if (layoutType === "1col") {
+      ctx.fillText("CATEGORÍA", x + nameColW + 16, y + thH / 2);
       ctx.textAlign = "center";
-      ctx.textBaseline = "alphabetic";
-      var brandStr = p.brand.toUpperCase();
-      var maxBrandW = innerW - 16;
-      if (ctx.measureText(brandStr).width > maxBrandW) {
-        brandStr = brandStr.substring(0, 16) + "..";
+      ctx.fillText("STOCK", x + nameColW + catColW + stockColW / 2, y + thH / 2);
+    }
+
+    ctx.textAlign = "right";
+    ctx.fillText("PRECIO", x + width - 18, y + thH / 2);
+
+    // Filas de datos
+    for (var r = 0; r < maxRows; r++) {
+      var rowY = y + thH + r * rowH;
+      var p = (r < items.length ? items[r] : null);
+
+      // Fondo alternado (zebra)
+      ctx.fillStyle = (r % 2 === 0 ? "#FFFFFF" : "#F8FAFC");
+      ctx.fillRect(x, rowY, width, rowH);
+
+      // Bordes de celda delgados
+      ctx.strokeStyle = "#CBD5E1";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x, rowY + rowH);
+      ctx.lineTo(x + width, rowY + rowH);
+      ctx.stroke();
+
+      // Línea divisoria vertical para el precio
+      ctx.beginPath();
+      ctx.moveTo(x + width - priceColW, rowY);
+      ctx.lineTo(x + width - priceColW, rowY + rowH);
+      ctx.stroke();
+
+      if (layoutType === "1col") {
+        ctx.beginPath();
+        ctx.moveTo(x + nameColW, rowY);
+        ctx.lineTo(x + nameColW, rowY + rowH);
+        ctx.moveTo(x + nameColW + catColW, rowY);
+        ctx.lineTo(x + nameColW + catColW, rowY + rowH);
+        ctx.stroke();
       }
-      ctx.fillText(brandStr, innerX + innerW / 2, curY);
-      curY += brandSize + (isUltra ? 4 : 6);
-    } else {
-      curY += (isUltra ? 4 : 8);
-    }
 
-    // Nombre del producto (multilínea con ajuste de texto)
-    var prodName = p.name || "Producto";
-    var maxNameLines = (isUltra ? 2 : (isCompact ? 2 : 3));
-    var nameFontSize = (isUltra ? 22 : (isCompact ? 26 : 38));
-    ctx.fillStyle = "#111827";
+      if (!p) continue;
 
-    var lines = wrapText(ctx, prodName, innerW - (isUltra ? 14 : 24), nameFontSize, maxNameLines);
-    while (lines.length > maxNameLines && nameFontSize > 15) {
-      nameFontSize -= 2;
-      lines = wrapText(ctx, prodName, innerW - (isUltra ? 14 : 24), nameFontSize, maxNameLines);
-    }
+      // Texto de Producto (Nombre + Marca)
+      var pName = p.name || "";
+      if (p.brand) pName += " (" + p.brand + ")";
 
-    ctx.font = "800 " + nameFontSize + "px sans-serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "alphabetic";
-    for (var li = 0; li < lines.length; li++) {
-      ctx.fillText(lines[li], innerX + innerW / 2, curY);
-      curY += nameFontSize * 1.18;
-    }
+      ctx.fillStyle = "#0F172A";
+      ctx.font = "600 " + (layoutType === "3col" ? 20 : 22) + "px sans-serif";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
 
-    // Recuadro de Precio destacado
-    var isKg = (p.unit === "kg");
-    var priceStr = F.fmt(p.price || 0);
-
-    var priceBoxH = (isUltra ? 82 : (isCompact ? 96 : 140));
-    var priceBoxY = innerY + innerH - priceBoxH - (isUltra ? 8 : 14);
-
-    ctx.fillStyle = "#F0FDF4";
-    ctx.strokeStyle = "#86EFAC";
-    ctx.lineWidth = (isUltra ? 1.5 : 2.5);
-    var pbRadius = (isUltra ? 6 : 10);
-    var pPadX = (isUltra ? 8 : 12);
-    ctx.beginPath();
-    ctx.roundRect(innerX + pPadX, priceBoxY, innerW - pPadX * 2, priceBoxH, pbRadius);
-    ctx.fill();
-    ctx.stroke();
-
-    // Símbolo $ y monto
-    var pFontSize = (isUltra ? 42 : (isCompact ? 52 : 72));
-    ctx.font = "900 " + pFontSize + "px sans-serif";
-    while (ctx.measureText("$ " + priceStr).width > (innerW - pPadX * 2 - (isUltra ? 16 : 24)) && pFontSize > 22) {
-      pFontSize -= 2;
-      ctx.font = "900 " + pFontSize + "px sans-serif";
-    }
-
-    var textCenterY = priceBoxY + priceBoxH / 2 + (isKg ? (isUltra ? -6 : -9) : 0);
-    ctx.fillStyle = "#14532D";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText("$ " + priceStr, innerX + innerW / 2, textCenterY);
-
-    if (isKg) {
-      ctx.fillStyle = "#15803D";
-      ctx.font = "700 " + Math.max(12, Math.floor(pFontSize * 0.30)) + "px sans-serif";
-      ctx.fillText("POR KILOGRAMO", innerX + innerW / 2, priceBoxY + priceBoxH - (isUltra ? 10 : 14));
-    }
-  }
-
-  function wrapText(ctx, text, maxWidth, fontSize, maxLines) {
-    ctx.font = "800 " + fontSize + "px sans-serif";
-    var words = text.split(/\s+/);
-    var lines = [];
-    var cur = "";
-
-    for (var i = 0; i < words.length; i++) {
-      var test = cur ? (cur + " " + words[i]) : words[i];
-      if (ctx.measureText(test).width <= maxWidth) {
-        cur = test;
-      } else {
-        if (cur) lines.push(cur);
-        cur = words[i];
-        if (lines.length === maxLines - 1) {
-          // Última línea permitida: acumula el resto
-          for (var j = i + 1; j < words.length; j++) {
-            cur += " " + words[j];
-          }
-          break;
+      // Trunca con elipsis si excede la celda para que nunca desborde
+      var maxTxtW = nameColW - 24;
+      var shownName = pName;
+      if (ctx.measureText(shownName).width > maxTxtW) {
+        while (shownName.length > 3 && ctx.measureText(shownName + "...").width > maxTxtW) {
+          shownName = shownName.substring(0, shownName.length - 1);
         }
+        shownName += "...";
       }
+      ctx.fillText(shownName, x + 14, rowY + rowH / 2);
+
+      // Si es formato de 1 columna, dibuja categoría y stock
+      if (layoutType === "1col") {
+        ctx.fillStyle = "#475569";
+        ctx.font = "500 20px sans-serif";
+        var catTxt = p.category || "—";
+        if (ctx.measureText(catTxt).width > catColW - 24) {
+          catTxt = catTxt.substring(0, 18) + "...";
+        }
+        ctx.fillText(catTxt, x + nameColW + 14, rowY + rowH / 2);
+
+        ctx.textAlign = "center";
+        ctx.fillText(F.fmtQty(p.stock || 0, p.unit), x + nameColW + catColW + stockColW / 2, rowY + rowH / 2);
+      }
+
+      // Precio (destacado en negrita)
+      var priceText = "$" + F.fmt(p.price || 0) + (p.unit === "kg" ? "/kg" : "");
+      ctx.fillStyle = "#15803D"; // Verde oscuro legible
+      ctx.font = "800 " + (layoutType === "3col" ? 22 : 24) + "px sans-serif";
+      ctx.textAlign = "right";
+      ctx.fillText(priceText, x + width - 16, rowY + rowH / 2);
     }
-    if (cur) lines.push(cur);
-    return lines;
+
+    // Borde exterior de la tabla completa
+    ctx.strokeStyle = "#94A3B8";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x, y, width, thH + maxRows * rowH);
   }
 
   function downloadPriceLabels() {
@@ -1450,8 +1413,9 @@
       return;
     }
 
-    var layout = parseInt($("lbl-layout") ? $("lbl-layout").value : "8", 10) || 8;
-    var totalSheets = Math.ceil(prods.length / layout);
+    var layout = $("lbl-layout") ? $("lbl-layout").value : "2col";
+    var perPage = getPageCapacity(layout);
+    var totalSheets = Math.ceil(prods.length / perPage);
     var prog = $("lbl-progress");
     var btn = $("btn-download-labels");
     if (btn) btn.disabled = true;
@@ -1469,24 +1433,23 @@
           if (prog) prog.style.display = "none";
           hideOv("labels-ov");
         }, 1500);
-        toast("Se descargaron " + totalSheets + " hoja(s) JPG de precios");
+        toast("Se descargaron " + totalSheets + " hoja(s) de lista de precios");
         return;
       }
 
-      var start = sheetIdx * layout;
-      var end = Math.min(start + layout, prods.length);
+      var start = sheetIdx * perPage;
+      var end = Math.min(start + perPage, prods.length);
       var chunk = prods.slice(start, end);
 
       if (prog) prog.textContent = "Generando hoja " + (sheetIdx + 1) + " de " + totalSheets + "...";
 
-      // Permitir que el navegador pinte el estado
       setTimeout(function () {
         try {
           var canvas = drawPriceLabelSheet(chunk, sheetIdx + 1, totalSheets, layout);
           var dataUrl = canvas.toDataURL("image/jpeg", 0.92);
           var a = document.createElement("a");
           a.href = dataUrl;
-          a.download = "Precios_KP_Hoja_" + (sheetIdx + 1) + "_de_" + totalSheets + ".jpg";
+          a.download = "Lista_Precios_KP_Hoja_" + (sheetIdx + 1) + "_de_" + totalSheets + ".jpg";
           document.body.appendChild(a);
           a.click();
           setTimeout(function () { a.remove(); }, 300);
@@ -1496,7 +1459,6 @@
         }
 
         sheetIdx++;
-        // Pausa entre descargas para evitar bloqueos del navegador en descargas múltiples
         setTimeout(processNextSheet, 450);
       }, 50);
     }

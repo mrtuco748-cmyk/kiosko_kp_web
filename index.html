@@ -433,19 +433,17 @@
 <div id="labels-ov" class="ov" onclick="if(event.target===this)KP_UI.hideOv('labels-ov')">
   <div style="max-width:580px">
     <div class="dh">
-      <h2><span class="ic">print</span> Imprimir Precios</h2>
+      <h2><span class="ic">print</span> Lista de Precios Imprimible</h2>
       <button class="btn ghost icon-btn" onclick="KP_UI.hideOv('labels-ov')"><span class="ic">close</span></button>
     </div>
-    <p class="muted">Genera hojas JPG listas para imprimir y recortar los carteles de precios para góndola o mostrador.</p>
+    <p class="muted">Genera hojas JPG en formato tabla/lista compacta tipo planilla para imprimir todos los precios ocupando el menor papel posible.</p>
     
     <div class="fld">
-      <label>Tamaño de carteles por hoja</label>
+      <label>Formato de tabla por hoja</label>
       <select id="lbl-layout" onchange="KP_UI.updateLabelsSummary()">
-        <option value="32" selected>32 por hoja (4 col × 8 filas) — Ultra compacto (tipo ticket)</option>
-        <option value="24">24 por hoja (4 col × 6 filas) — Etiquetas de góndola chicas</option>
-        <option value="16">16 por hoja (4 col × 4 filas) — Estante intermedio</option>
-        <option value="8">8 por hoja (2 col × 4 filas) — Góndola estándar</option>
-        <option value="4">4 por hoja (2 col × 2 filas) — Cartel mediano</option>
+        <option value="2col" selected>2 columnas de tabla (~110 productos por hoja A4) — Recomendado</option>
+        <option value="3col">3 columnas de tabla (~165 productos por hoja A4) — Máximo ahorro</option>
+        <option value="1col">1 columna completa con categoría y stock (~55 productos por hoja A4)</option>
       </select>
     </div>
 
@@ -461,8 +459,8 @@
     <div class="fld">
       <label>Ordenar por</label>
       <select id="lbl-sort" onchange="KP_UI.updateLabelsSummary()">
-        <option value="name">Nombre (A - Z)</option>
         <option value="category">Categoría y luego Nombre</option>
+        <option value="name">Nombre (A - Z)</option>
         <option value="price_asc">Precio (menor a mayor)</option>
         <option value="price_desc">Precio (mayor a menor)</option>
       </select>
