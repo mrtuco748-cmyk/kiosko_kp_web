@@ -1238,15 +1238,17 @@
     ctx.fillStyle = "#FFFFFF";
     ctx.fillRect(0, 0, W, H);
 
-    var cols = 2, rows = 4;
-    if (layoutType === 4) { cols = 2; rows = 2; }
-    else if (layoutType === 12) { cols = 3; rows = 4; }
-    else if (layoutType === 2) { cols = 1; rows = 2; }
-    else { cols = 2; rows = 4; }
+    var cols = 4, rows = 8;
+    if (layoutType === 32) { cols = 4; rows = 8; }
+    else if (layoutType === 24) { cols = 4; rows = 6; }
+    else if (layoutType === 16) { cols = 4; rows = 4; }
+    else if (layoutType === 8) { cols = 2; rows = 4; }
+    else if (layoutType === 4) { cols = 2; rows = 2; }
+    else { cols = 4; rows = 8; }
 
-    var marginX = 100;
-    var marginY = 120;
-    var footerH = 80;
+    var marginX = 80;
+    var marginY = 90;
+    var footerH = 60;
     var gridW = W - marginX * 2;
     var gridH = H - marginY * 2 - footerH;
 
@@ -1255,11 +1257,11 @@
 
     // Encabezado / Pie de hoja sutil para control de impresión
     ctx.fillStyle = "#888888";
-    ctx.font = "500 28px sans-serif";
+    ctx.font = "500 26px sans-serif";
     ctx.textAlign = "left";
-    ctx.fillText("MaxiKiosko KP · Lista de Precios", marginX, 70);
+    ctx.fillText("MaxiKiosko KP · Lista de Precios", marginX, 55);
     ctx.textAlign = "right";
-    ctx.fillText("Hoja " + pageIndex + " de " + totalPages + "  ·  " + new Date().toLocaleDateString("es-AR"), W - marginX, 70);
+    ctx.fillText("Hoja " + pageIndex + " de " + totalPages + "  ·  " + new Date().toLocaleDateString("es-AR"), W - marginX, 55);
 
     // Dibuja cada cartel
     for (var i = 0; i < items.length; i++) {
@@ -1273,9 +1275,9 @@
     }
 
     // Líneas guía de corte punteadas exteriores e interiores
-    ctx.strokeStyle = "#C5CBD3";
-    ctx.lineWidth = 2;
-    ctx.setLineDash([12, 10]);
+    ctx.strokeStyle = "#D1D5DB";
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([8, 8]);
 
     for (var ci = 0; ci <= cols; ci++) {
       var lx = marginX + ci * cellW;
@@ -1297,66 +1299,76 @@
   }
 
   function drawSingleLabel(ctx, p, x, y, w, h, layoutType) {
-    var pad = 24;
+    var pad = (layoutType >= 24 ? 10 : (layoutType >= 16 ? 14 : 20));
     var innerX = x + pad;
     var innerY = y + pad;
     var innerW = w - pad * 2;
     var innerH = h - pad * 2;
 
-    // Marco con esquinas redondeadas
-    var radius = 18;
+    var isCompact = (layoutType >= 16);
+    var isUltra = (layoutType >= 24);
+
+    // Marco exterior con esquinas redondeadas
+    var radius = (isUltra ? 6 : (isCompact ? 10 : 16));
     ctx.strokeStyle = "#1A3322";
-    ctx.lineWidth = 4;
+    ctx.lineWidth = (isUltra ? 2 : 3);
     ctx.beginPath();
     ctx.roundRect(innerX, innerY, innerW, innerH, radius);
     ctx.stroke();
 
-    // Franja superior con marca de kiosko
-    var headerH = Math.min(54, Math.floor(innerH * 0.14));
+    // Franja o insignia superior
+    var headerH = (isUltra ? 30 : (isCompact ? 36 : 48));
     ctx.fillStyle = "#166534";
     ctx.beginPath();
     ctx.roundRect(innerX, innerY, innerW, headerH, [radius, radius, 0, 0]);
     ctx.fill();
 
-    // Texto de la franja superior
+    // Texto del encabezado
     ctx.fillStyle = "#FFFFFF";
-    ctx.font = "700 " + Math.floor(headerH * 0.44) + "px sans-serif";
+    ctx.font = "800 " + (isUltra ? 14 : (isCompact ? 17 : 22)) + "px sans-serif";
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";
-    ctx.fillText("MAXIKIOSKO KP", innerX + 20, innerY + headerH / 2);
+    ctx.fillText("MAXIKIOSKO KP", innerX + (isUltra ? 8 : 14), innerY + headerH / 2);
 
     if (p.category) {
       ctx.textAlign = "right";
-      ctx.font = "600 " + Math.floor(headerH * 0.38) + "px sans-serif";
+      ctx.font = "700 " + (isUltra ? 13 : (isCompact ? 15 : 18)) + "px sans-serif";
       ctx.fillStyle = "#BBF7D0";
       var catStr = p.category.toUpperCase();
-      if (catStr.length > 20) catStr = catStr.substring(0, 18) + "...";
-      ctx.fillText(catStr, innerX + innerW - 20, innerY + headerH / 2);
+      var maxCatLen = (isUltra ? 14 : (isCompact ? 18 : 24));
+      if (catStr.length > maxCatLen) catStr = catStr.substring(0, maxCatLen - 2) + "..";
+      ctx.fillText(catStr, innerX + innerW - (isUltra ? 8 : 14), innerY + headerH / 2);
     }
 
     // Marca si existe
-    var curY = innerY + headerH + 28;
+    var curY = innerY + headerH + (isUltra ? 14 : (isCompact ? 18 : 24));
     if (p.brand) {
       ctx.fillStyle = "#4B5563";
-      ctx.font = "700 " + (layoutType === 12 ? 28 : (layoutType === 2 ? 46 : 34)) + "px sans-serif";
+      var brandSize = (isUltra ? 15 : (isCompact ? 19 : 28));
+      ctx.font = "700 " + brandSize + "px sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "alphabetic";
-      ctx.fillText(p.brand.toUpperCase(), innerX + innerW / 2, curY);
-      curY += (layoutType === 12 ? 36 : (layoutType === 2 ? 58 : 44));
+      var brandStr = p.brand.toUpperCase();
+      var maxBrandW = innerW - 16;
+      if (ctx.measureText(brandStr).width > maxBrandW) {
+        brandStr = brandStr.substring(0, 16) + "..";
+      }
+      ctx.fillText(brandStr, innerX + innerW / 2, curY);
+      curY += brandSize + (isUltra ? 4 : 6);
     } else {
-      curY += 10;
+      curY += (isUltra ? 4 : 8);
     }
 
-    // Nombre del producto (multilínea con ajuste automático de fuente para no cortarse jamás)
+    // Nombre del producto (multilínea con ajuste de texto)
     var prodName = p.name || "Producto";
-    var maxNameLines = (layoutType === 12 ? 2 : 3);
-    var nameFontSize = (layoutType === 12 ? 38 : (layoutType === 2 ? 64 : 46));
+    var maxNameLines = (isUltra ? 2 : (isCompact ? 2 : 3));
+    var nameFontSize = (isUltra ? 22 : (isCompact ? 26 : 38));
     ctx.fillStyle = "#111827";
 
-    var lines = wrapText(ctx, prodName, innerW - 40, nameFontSize, maxNameLines);
-    while (lines.length > maxNameLines && nameFontSize > 22) {
-      nameFontSize -= 4;
-      lines = wrapText(ctx, prodName, innerW - 40, nameFontSize, maxNameLines);
+    var lines = wrapText(ctx, prodName, innerW - (isUltra ? 14 : 24), nameFontSize, maxNameLines);
+    while (lines.length > maxNameLines && nameFontSize > 15) {
+      nameFontSize -= 2;
+      lines = wrapText(ctx, prodName, innerW - (isUltra ? 14 : 24), nameFontSize, maxNameLines);
     }
 
     ctx.font = "800 " + nameFontSize + "px sans-serif";
@@ -1364,47 +1376,44 @@
     ctx.textBaseline = "alphabetic";
     for (var li = 0; li < lines.length; li++) {
       ctx.fillText(lines[li], innerX + innerW / 2, curY);
-      curY += nameFontSize * 1.22;
+      curY += nameFontSize * 1.18;
     }
 
-    // Caja de Precio (zona inferior destacada con alto contraste)
+    // Recuadro de Precio destacado
     var isKg = (p.unit === "kg");
     var priceStr = F.fmt(p.price || 0);
 
-    // Calculamos el tamaño del precio en función del espacio restante
-    var priceBoxH = Math.min(innerH * 0.36, innerY + innerH - curY - 20);
-    if (priceBoxH < 80) priceBoxH = 80;
-    var priceBoxY = innerY + innerH - priceBoxH - 16;
+    var priceBoxH = (isUltra ? 82 : (isCompact ? 96 : 140));
+    var priceBoxY = innerY + innerH - priceBoxH - (isUltra ? 8 : 14);
 
-    // Fondo suave para el recuadro de precio
     ctx.fillStyle = "#F0FDF4";
     ctx.strokeStyle = "#86EFAC";
-    ctx.lineWidth = 3;
-    var pbRadius = 12;
-    var pPadX = 16;
+    ctx.lineWidth = (isUltra ? 1.5 : 2.5);
+    var pbRadius = (isUltra ? 6 : 10);
+    var pPadX = (isUltra ? 8 : 12);
     ctx.beginPath();
     ctx.roundRect(innerX + pPadX, priceBoxY, innerW - pPadX * 2, priceBoxH, pbRadius);
     ctx.fill();
     ctx.stroke();
 
-    // Dibujo del símbolo $ y el monto
-    var pFontSize = (layoutType === 12 ? 58 : (layoutType === 2 ? 110 : (layoutType === 4 ? 92 : 72)));
+    // Símbolo $ y monto
+    var pFontSize = (isUltra ? 42 : (isCompact ? 52 : 72));
     ctx.font = "900 " + pFontSize + "px sans-serif";
-    while (ctx.measureText("$" + priceStr).width > (innerW - pPadX * 2 - 40) && pFontSize > 34) {
-      pFontSize -= 4;
+    while (ctx.measureText("$ " + priceStr).width > (innerW - pPadX * 2 - (isUltra ? 16 : 24)) && pFontSize > 22) {
+      pFontSize -= 2;
       ctx.font = "900 " + pFontSize + "px sans-serif";
     }
 
-    var textCenterY = priceBoxY + priceBoxH / 2 + (isKg ? -10 : 0);
-    ctx.fillStyle = "#14532D"; // Verde oscuro nítido
+    var textCenterY = priceBoxY + priceBoxH / 2 + (isKg ? (isUltra ? -6 : -9) : 0);
+    ctx.fillStyle = "#14532D";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText("$ " + priceStr, innerX + innerW / 2, textCenterY);
 
     if (isKg) {
       ctx.fillStyle = "#15803D";
-      ctx.font = "700 " + Math.max(22, Math.floor(pFontSize * 0.36)) + "px sans-serif";
-      ctx.fillText("POR KILOGRAMO", innerX + innerW / 2, priceBoxY + priceBoxH - 18);
+      ctx.font = "700 " + Math.max(12, Math.floor(pFontSize * 0.30)) + "px sans-serif";
+      ctx.fillText("POR KILOGRAMO", innerX + innerW / 2, priceBoxY + priceBoxH - (isUltra ? 10 : 14));
     }
   }
 
