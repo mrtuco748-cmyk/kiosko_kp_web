@@ -179,7 +179,10 @@
       <div class="split" id="invSplit">
         <div class="split-left">
           <div class="srch"><span class="ic muted">search</span><input type="text" id="inv-search" placeholder="Buscar producto o marca..." oninput="KP_STORE.emit()"></div>
-          <button class="btn solid" onclick="KP_UI.showNewProductForm()"><span class="ic">add</span> Nuevo Producto</button>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn solid" onclick="KP_UI.showNewProductForm()" style="flex:1"><span class="ic">add</span> Nuevo</button>
+            <button class="btn blue" onclick="KP_UI.openPrintLabels()" title="Descargar carteles para imprimir precios"><span class="ic">print</span> Carteles</button>
+          </div>
           <div class="filts">
             <button class="active" onclick="KP_UI.setInvFilter('all',this)">Todo</button>
             <button onclick="KP_UI.setInvFilter('nostock',this)">Sin Stock</button>
@@ -424,6 +427,62 @@
       <button class="btn ok" onclick="KP_UI.applyLoadData()" style="min-height:60px;font-size:18px"><span class="ic">check</span> Cargar datos (reemplaza todo)</button>
     </div>
     <button class="btn ghost" onclick="KP_UI.hideOv('load-ov')">Cancelar</button>
+  </div>
+</div>
+
+<div id="labels-ov" class="ov" onclick="if(event.target===this)KP_UI.hideOv('labels-ov')">
+  <div style="max-width:580px">
+    <div class="dh">
+      <h2><span class="ic">print</span> Imprimir Precios</h2>
+      <button class="btn ghost icon-btn" onclick="KP_UI.hideOv('labels-ov')"><span class="ic">close</span></button>
+    </div>
+    <p class="muted">Genera hojas JPG listas para imprimir y recortar los carteles de precios para góndola o mostrador.</p>
+    
+    <div class="fld">
+      <label>Tamaño de carteles por hoja</label>
+      <select id="lbl-layout" onchange="KP_UI.updateLabelsSummary()">
+        <option value="8">8 por hoja (2 col × 4 filas) — Góndola estándar</option>
+        <option value="4">4 por hoja (2 col × 2 filas) — Cartel mediano</option>
+        <option value="12">12 por hoja (3 col × 4 filas) — Estante compacto</option>
+        <option value="2">2 por hoja (1 col × 2 filas) — Cartel grande / ofertas</option>
+      </select>
+    </div>
+
+    <div class="fld">
+      <label>Qué productos incluir</label>
+      <select id="lbl-filter" onchange="KP_UI.updateLabelsSummary()">
+        <option value="all">Todos los productos</option>
+        <option value="stock">Solo con stock disponible</option>
+        <option value="visible">Solo los filtrados en inventario actualmente</option>
+      </select>
+    </div>
+
+    <div class="fld">
+      <label>Ordenar por</label>
+      <select id="lbl-sort" onchange="KP_UI.updateLabelsSummary()">
+        <option value="name">Nombre (A - Z)</option>
+        <option value="category">Categoría y luego Nombre</option>
+        <option value="price_asc">Precio (menor a mayor)</option>
+        <option value="price_desc">Precio (mayor a menor)</option>
+      </select>
+    </div>
+
+    <div class="card" style="background:var(--sf2);padding:14px;border:1px solid var(--line2)">
+      <div class="rowline">
+        <span class="muted">Productos seleccionados:</span>
+        <b id="lbl-count" style="color:var(--tx)">0</b>
+      </div>
+      <div class="rowline" style="margin-top:6px">
+        <span class="muted">Hojas a generar:</span>
+        <b id="lbl-sheets" style="color:var(--pr);font-size:18px">0 hoja(s)</b>
+      </div>
+      <div id="lbl-progress" class="muted" style="margin-top:8px;font-size:13px;display:none;color:var(--pr)"></div>
+    </div>
+
+    <div style="display:flex;gap:12px;margin-top:8px">
+      <button class="btn ghost" onclick="KP_UI.hideOv('labels-ov')" style="flex:1">Cancelar</button>
+      <button class="btn primary" id="btn-download-labels" onclick="KP_UI.downloadPriceLabels()" style="flex:1.4"><span class="ic">download</span> Descargar JPGs</button>
+    </div>
   </div>
 </div>
 

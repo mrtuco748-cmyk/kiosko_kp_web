@@ -1176,6 +1176,325 @@
     });
   }
 
+  // ---------- CARTELES DE PRECIOS PARA IMPRIMIR ----------
+  function getSelectedLabelsProducts() {
+    var filter = ($("lbl-filter") ? $("lbl-filter").value : "all");
+    var sort = ($("lbl-sort") ? $("lbl-sort").value : "name");
+    var q = ($("inv-search") ? $("inv-search").value || "" : "").toLowerCase();
+    var list = D().inventory.slice();
+
+    if (filter === "stock") {
+      list = list.filter(function (p) { return p.stock > 0; });
+    } else if (filter === "visible") {
+      list = list.filter(function (p) {
+        if (q && p.name.toLowerCase().indexOf(q) < 0 && (p.brand || "").toLowerCase().indexOf(q) < 0) return false;
+        if (D().inventoryFilter === "nostock") return !(p.stock > 0);
+        if (D().inventoryFilter === "low") return p.stock > 0 && p.stock <= 5;
+        return true;
+      });
+    }
+
+    list.sort(function (a, b) {
+      if (sort === "category") {
+        var c1 = (a.category || "").toLowerCase();
+        var c2 = (b.category || "").toLowerCase();
+        if (c1 !== c2) return c1.localeCompare(c2);
+        return a.name.localeCompare(b.name);
+      }
+      if (sort === "price_asc") return (a.price || 0) - (b.price || 0);
+      if (sort === "price_desc") return (b.price || 0) - (a.price || 0);
+      return a.name.localeCompare(b.name);
+    });
+
+    return list;
+  }
+
+  function updateLabelsSummary() {
+    var prods = getSelectedLabelsProducts();
+    var layout = parseInt($("lbl-layout") ? $("lbl-layout").value : "8", 10) || 8;
+    var sheets = Math.ceil(prods.length / layout);
+
+    if ($("lbl-count")) $("lbl-count").textContent = prods.length + " producto" + (prods.length === 1 ? "" : "s");
+    if ($("lbl-sheets")) $("lbl-sheets").textContent = sheets + " hoja" + (sheets === 1 ? "" : "s") + " (A4)";
+    var btn = $("btn-download-labels");
+    if (btn) btn.disabled = (prods.length === 0);
+  }
+
+  function openPrintLabels() {
+    showOv("labels-ov");
+    updateLabelsSummary();
+  }
+
+  function drawPriceLabelSheet(items, pageIndex, totalPages, layoutType) {
+    var canvas = document.createElement("canvas");
+    // Hoja A4 vertical a 300 DPI: 2480 x 3508 px
+    var W = 2480;
+    var H = 3508;
+    canvas.width = W;
+    canvas.height = H;
+    var ctx = canvas.getContext("2d");
+
+    // Fondo blanco nítido para impresión
+    ctx.fillStyle = "#FFFFFF";
+    ctx.fillRect(0, 0, W, H);
+
+    var cols = 2, rows = 4;
+    if (layoutType === 4) { cols = 2; rows = 2; }
+    else if (layoutType === 12) { cols = 3; rows = 4; }
+    else if (layoutType === 2) { cols = 1; rows = 2; }
+    else { cols = 2; rows = 4; }
+
+    var marginX = 100;
+    var marginY = 120;
+    var footerH = 80;
+    var gridW = W - marginX * 2;
+    var gridH = H - marginY * 2 - footerH;
+
+    var cellW = gridW / cols;
+    var cellH = gridH / rows;
+
+    // Encabezado / Pie de hoja sutil para control de impresión
+    ctx.fillStyle = "#888888";
+    ctx.font = "500 28px sans-serif";
+    ctx.textAlign = "left";
+    ctx.fillText("MaxiKiosko KP · Lista de Precios", marginX, 70);
+    ctx.textAlign = "right";
+    ctx.fillText("Hoja " + pageIndex + " de " + totalPages + "  ·  " + new Date().toLocaleDateString("es-AR"), W - marginX, 70);
+
+    // Dibuja cada cartel
+    for (var i = 0; i < items.length; i++) {
+      var p = items[i];
+      var c = i % cols;
+      var r = Math.floor(i / cols);
+      var x = marginX + c * cellW;
+      var y = marginY + r * cellH;
+
+      drawSingleLabel(ctx, p, x, y, cellW, cellH, layoutType);
+    }
+
+    // Líneas guía de corte punteadas exteriores e interiores
+    ctx.strokeStyle = "#C5CBD3";
+    ctx.lineWidth = 2;
+    ctx.setLineDash([12, 10]);
+
+    for (var ci = 0; ci <= cols; ci++) {
+      var lx = marginX + ci * cellW;
+      ctx.beginPath();
+      ctx.moveTo(lx, marginY);
+      ctx.lineTo(lx, marginY + gridH);
+      ctx.stroke();
+    }
+    for (var ri = 0; ri <= rows; ri++) {
+      var ly = marginY + ri * cellH;
+      ctx.beginPath();
+      ctx.moveTo(marginX, ly);
+      ctx.lineTo(marginX + gridW, ly);
+      ctx.stroke();
+    }
+    ctx.setLineDash([]); // Reset line dash
+
+    return canvas;
+  }
+
+  function drawSingleLabel(ctx, p, x, y, w, h, layoutType) {
+    var pad = 24;
+    var innerX = x + pad;
+    var innerY = y + pad;
+    var innerW = w - pad * 2;
+    var innerH = h - pad * 2;
+
+    // Marco con esquinas redondeadas
+    var radius = 18;
+    ctx.strokeStyle = "#1A3322";
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.roundRect(innerX, innerY, innerW, innerH, radius);
+    ctx.stroke();
+
+    // Franja superior con marca de kiosko
+    var headerH = Math.min(54, Math.floor(innerH * 0.14));
+    ctx.fillStyle = "#166534";
+    ctx.beginPath();
+    ctx.roundRect(innerX, innerY, innerW, headerH, [radius, radius, 0, 0]);
+    ctx.fill();
+
+    // Texto de la franja superior
+    ctx.fillStyle = "#FFFFFF";
+    ctx.font = "700 " + Math.floor(headerH * 0.44) + "px sans-serif";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.fillText("MAXIKIOSKO KP", innerX + 20, innerY + headerH / 2);
+
+    if (p.category) {
+      ctx.textAlign = "right";
+      ctx.font = "600 " + Math.floor(headerH * 0.38) + "px sans-serif";
+      ctx.fillStyle = "#BBF7D0";
+      var catStr = p.category.toUpperCase();
+      if (catStr.length > 20) catStr = catStr.substring(0, 18) + "...";
+      ctx.fillText(catStr, innerX + innerW - 20, innerY + headerH / 2);
+    }
+
+    // Marca si existe
+    var curY = innerY + headerH + 28;
+    if (p.brand) {
+      ctx.fillStyle = "#4B5563";
+      ctx.font = "700 " + (layoutType === 12 ? 28 : (layoutType === 2 ? 46 : 34)) + "px sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "alphabetic";
+      ctx.fillText(p.brand.toUpperCase(), innerX + innerW / 2, curY);
+      curY += (layoutType === 12 ? 36 : (layoutType === 2 ? 58 : 44));
+    } else {
+      curY += 10;
+    }
+
+    // Nombre del producto (multilínea con ajuste automático de fuente para no cortarse jamás)
+    var prodName = p.name || "Producto";
+    var maxNameLines = (layoutType === 12 ? 2 : 3);
+    var nameFontSize = (layoutType === 12 ? 38 : (layoutType === 2 ? 64 : 46));
+    ctx.fillStyle = "#111827";
+
+    var lines = wrapText(ctx, prodName, innerW - 40, nameFontSize, maxNameLines);
+    while (lines.length > maxNameLines && nameFontSize > 22) {
+      nameFontSize -= 4;
+      lines = wrapText(ctx, prodName, innerW - 40, nameFontSize, maxNameLines);
+    }
+
+    ctx.font = "800 " + nameFontSize + "px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "alphabetic";
+    for (var li = 0; li < lines.length; li++) {
+      ctx.fillText(lines[li], innerX + innerW / 2, curY);
+      curY += nameFontSize * 1.22;
+    }
+
+    // Caja de Precio (zona inferior destacada con alto contraste)
+    var isKg = (p.unit === "kg");
+    var priceStr = F.fmt(p.price || 0);
+
+    // Calculamos el tamaño del precio en función del espacio restante
+    var priceBoxH = Math.min(innerH * 0.36, innerY + innerH - curY - 20);
+    if (priceBoxH < 80) priceBoxH = 80;
+    var priceBoxY = innerY + innerH - priceBoxH - 16;
+
+    // Fondo suave para el recuadro de precio
+    ctx.fillStyle = "#F0FDF4";
+    ctx.strokeStyle = "#86EFAC";
+    ctx.lineWidth = 3;
+    var pbRadius = 12;
+    var pPadX = 16;
+    ctx.beginPath();
+    ctx.roundRect(innerX + pPadX, priceBoxY, innerW - pPadX * 2, priceBoxH, pbRadius);
+    ctx.fill();
+    ctx.stroke();
+
+    // Dibujo del símbolo $ y el monto
+    var pFontSize = (layoutType === 12 ? 58 : (layoutType === 2 ? 110 : (layoutType === 4 ? 92 : 72)));
+    ctx.font = "900 " + pFontSize + "px sans-serif";
+    while (ctx.measureText("$" + priceStr).width > (innerW - pPadX * 2 - 40) && pFontSize > 34) {
+      pFontSize -= 4;
+      ctx.font = "900 " + pFontSize + "px sans-serif";
+    }
+
+    var textCenterY = priceBoxY + priceBoxH / 2 + (isKg ? -10 : 0);
+    ctx.fillStyle = "#14532D"; // Verde oscuro nítido
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("$ " + priceStr, innerX + innerW / 2, textCenterY);
+
+    if (isKg) {
+      ctx.fillStyle = "#15803D";
+      ctx.font = "700 " + Math.max(22, Math.floor(pFontSize * 0.36)) + "px sans-serif";
+      ctx.fillText("POR KILOGRAMO", innerX + innerW / 2, priceBoxY + priceBoxH - 18);
+    }
+  }
+
+  function wrapText(ctx, text, maxWidth, fontSize, maxLines) {
+    ctx.font = "800 " + fontSize + "px sans-serif";
+    var words = text.split(/\s+/);
+    var lines = [];
+    var cur = "";
+
+    for (var i = 0; i < words.length; i++) {
+      var test = cur ? (cur + " " + words[i]) : words[i];
+      if (ctx.measureText(test).width <= maxWidth) {
+        cur = test;
+      } else {
+        if (cur) lines.push(cur);
+        cur = words[i];
+        if (lines.length === maxLines - 1) {
+          // Última línea permitida: acumula el resto
+          for (var j = i + 1; j < words.length; j++) {
+            cur += " " + words[j];
+          }
+          break;
+        }
+      }
+    }
+    if (cur) lines.push(cur);
+    return lines;
+  }
+
+  function downloadPriceLabels() {
+    var prods = getSelectedLabelsProducts();
+    if (!prods.length) {
+      toast("No hay productos para imprimir", "warn");
+      return;
+    }
+
+    var layout = parseInt($("lbl-layout") ? $("lbl-layout").value : "8", 10) || 8;
+    var totalSheets = Math.ceil(prods.length / layout);
+    var prog = $("lbl-progress");
+    var btn = $("btn-download-labels");
+    if (btn) btn.disabled = true;
+    if (prog) {
+      prog.style.display = "block";
+      prog.textContent = "Preparando hojas (0/" + totalSheets + ")...";
+    }
+
+    var sheetIdx = 0;
+    function processNextSheet() {
+      if (sheetIdx >= totalSheets) {
+        if (prog) prog.textContent = "¡Todas las hojas descargadas!";
+        if (btn) btn.disabled = false;
+        setTimeout(function () {
+          if (prog) prog.style.display = "none";
+          hideOv("labels-ov");
+        }, 1500);
+        toast("Se descargaron " + totalSheets + " hoja(s) JPG de precios");
+        return;
+      }
+
+      var start = sheetIdx * layout;
+      var end = Math.min(start + layout, prods.length);
+      var chunk = prods.slice(start, end);
+
+      if (prog) prog.textContent = "Generando hoja " + (sheetIdx + 1) + " de " + totalSheets + "...";
+
+      // Permitir que el navegador pinte el estado
+      setTimeout(function () {
+        try {
+          var canvas = drawPriceLabelSheet(chunk, sheetIdx + 1, totalSheets, layout);
+          var dataUrl = canvas.toDataURL("image/jpeg", 0.92);
+          var a = document.createElement("a");
+          a.href = dataUrl;
+          a.download = "Precios_KP_Hoja_" + (sheetIdx + 1) + "_de_" + totalSheets + ".jpg";
+          document.body.appendChild(a);
+          a.click();
+          setTimeout(function () { a.remove(); }, 300);
+        } catch (e) {
+          console.error("Error al generar hoja:", e);
+          toast("Error en hoja " + (sheetIdx + 1), "danger");
+        }
+
+        sheetIdx++;
+        // Pausa entre descargas para evitar bloqueos del navegador en descargas múltiples
+        setTimeout(processNextSheet, 450);
+      }, 50);
+    }
+
+    processNextSheet();
+  }
+
   // ---------- COBRAR ----------
   function setPM(m, el) {
     D().paymentMethod = m;
@@ -1650,6 +1969,7 @@
     shareRetoggle: shareRetoggle, shareCopy: shareCopy, shareSend: shareSend, shareDownload: shareDownload,
     setInvFilter: setInvFilter, selectProduct: selectProduct, deselectProduct: deselectProduct, showNewProductForm: showNewProductForm,
     createProduct: createProduct, updateProduct: updateProduct, deleteProduct: deleteProduct,
+    openPrintLabels: openPrintLabels, updateLabelsSummary: updateLabelsSummary, downloadPriceLabels: downloadPriceLabels,
     setPM: setPM, addToCart: addToCart, weightPreview: weightPreview, weightConfirm: weightConfirm,
     cartQty: cartQty, editCartWeight: editCartWeight, cartDel: cartDel,
     confirmSale: confirmSale, toggleMiniDeuda: toggleMiniDeuda, cobrarMiniDeuda: cobrarMiniDeuda,
