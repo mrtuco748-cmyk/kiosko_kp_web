@@ -667,21 +667,19 @@ main::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.24);background-
 }
 .pef{display:flex;flex-direction:column;gap:14px}
 .pef-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-
-/* Barra de guardar: el boton queda fijo al pie del panel que scrollea, asi
-   siempre se llega. Antes, en pantallas bajas, "Guardar Cambios" caia bajo
-   el borde (o debajo de la barra de navegacion) y no se podia apretar. */
-.save-bar{
-  position:sticky;z-index:5;bottom:0;
-  display:flex;gap:12px;align-items:center;
-  margin:6px -22px -22px;
-  padding:14px 22px;
-  background:rgba(13,28,19,.97);
-  -webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);
-  border-top:1px solid var(--line2);
-  border-radius:0 0 var(--r) var(--r);
+.inv-val-box{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 16px;border-radius:var(--rs);
+  background:rgba(74,222,128,.1);border:1px solid rgba(74,222,128,.28);
+  color:var(--pr);font-weight:750;font-size:15px;margin-top:2px;
 }
-.save-bar .btn{flex:1;min-height:58px;font-size:17px;font-weight:750}
+.save-bar{
+  display:flex;gap:12px;align-items:center;
+  margin:16px 0 0;
+  padding:16px 0 0;
+  border-top:1px solid var(--line2);
+}
+.save-bar .btn{flex:1;min-height:54px;font-size:16px;font-weight:750}
 
 /* ---------- 13. COBRAR (carrito + catalogo) ---------- */
 .scat{
@@ -1163,10 +1161,9 @@ button.btn:hover::after{transform:translateX(120%);opacity:1}
   /* La barra de guardar flota por encima de la barra de navegacion; si
      quedara pegada abajo, el tabbar la taparia y no se podria apretar. */
   .save-bar{
-    bottom:calc(78px + env(safe-area-inset-bottom));
-    margin:8px 0 0;padding:12px 14px;
-    border:1px solid var(--line2);border-radius:var(--r);
-    box-shadow:var(--el-2);
+    margin:14px 0 0;padding:14px 0 0;
+    border-top:1px solid var(--line2);
+    box-shadow:none;
   }
   /* La barra de carrito ocupa todo el ancho y se apoya sobre el tabbar.
      Necesita su propia regla: la de tablet (deja:248px) la ganaria si no. */
@@ -1238,9 +1235,7 @@ button.btn:hover::after{transform:translateX(120%);opacity:1}
   .ac-drop{min-width:0;max-width:calc(100vw - 30px)}
   .ov{padding:12px}
   .ov>div{padding:20px;border-radius:22px}
-  .ov .save-bar{padding:12px 14px}
-  .card{padding:16px}
-  .save-bar{margin:6px -16px -16px;padding:12px 16px}
+  .save-bar{margin:12px 0 0;padding:12px 0 0}
   .ov h2{font-size:19px}
   .pmtgl button{min-height:64px;font-size:12.5px}
   .cdh-actions{gap:7px}

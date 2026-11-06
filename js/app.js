@@ -1120,7 +1120,7 @@
     $("inv-es").value = F.stockEditText(p);
     $("inv-unit").value = p.unit === "kg" ? "kg" : "u";
     var val = (p.price || 0) * (p.stock || 0);
-    $("inv-val").textContent = "Vale en stock: " + F.fmtCurrency(val);
+    $("inv-val").innerHTML = "<span>Valor total en stock:</span><b>" + F.fmtCurrency(val) + "</b>";
   }
   function showNewProductForm() {
     $("inv-n").value = ""; $("inv-m").value = ""; $("inv-c").value = "";
